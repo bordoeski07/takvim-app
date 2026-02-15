@@ -199,9 +199,24 @@ function renderEventList(dateKey) {
 
         const titleSpan = document.createElement('span');
         titleSpan.textContent = evt.title;
+        // Bold title
+        titleSpan.style.fontWeight = '600';
 
         item.appendChild(timeSpan);
         item.appendChild(titleSpan);
+
+        if (evt.description) {
+            const descSpan = document.createElement('span');
+            descSpan.textContent = evt.description;
+            descSpan.style.fontSize = '0.75rem';
+            descSpan.style.opacity = '0.7';
+            descSpan.style.whiteSpace = 'nowrap';
+            descSpan.style.overflow = 'hidden';
+            descSpan.style.textOverflow = 'ellipsis';
+            descSpan.style.display = 'block';
+            item.appendChild(descSpan);
+        }
+
         eventListContainer.appendChild(item);
     });
 }
@@ -224,7 +239,7 @@ function processImport() {
 
     let addedCount = 0;
 
-    // Simple parser: Look for lines containing day names and time ranges
+    // Detailed parser: Look for lines containing day names and time ranges
     lines.forEach(line => {
         const lowerLine = line.toLowerCase();
 
@@ -243,22 +258,33 @@ function processImport() {
         const time = timeMatch ? timeMatch[0] : '';
 
         // Find Course Code (e.g., ABC 101 or ABC101)
-        // Look for 2-4 uppercase letters followed by optional space and 3-4 digits
         const codeMatch = line.match(/\b[A-Z]{2,4}\s?\d{3,4}\b/);
-        const title = codeMatch ? codeMatch[0] : (line.length > 20 ? line.substring(0, 20) + '...' : line);
+
+        let title = '';
+        let description = '';
+
+        if (codeMatch) {
+            title = codeMatch[0]; // e.g. COMP101
+            // Description is the rest of the line, removing code, day, time
+            let cleanLine = line.replace(codeMatch[0], '').replace(time, '');
+            // Remove day name
+            for (const key of Object.keys(dayMap)) {
+                const reg = new RegExp(key, 'gi');
+                cleanLine = cleanLine.replace(reg, '');
+            }
+            // Clean up extra spaces/dashes
+            description = cleanLine.replace(/[-–]/g, '').trim().replace(/\s+/g, ' ');
+        } else {
+            title = line.length > 20 ? line.substring(0, 20) + '...' : line;
+        }
 
         if (dayOfWeek !== -1 && title) {
             // Add for next 4 weeks
             const today = new Date();
-            // Start from current week's Monday (or today)
-            // Let's find the FIRST occurrence of this day from today
             let d = new Date();
             d.setDate(d.getDate() + (dayOfWeek + 7 - d.getDay()) % 7);
 
-            // If the calculated day is today but the time has passed? Ignore complexity for now.
-
             for (let i = 0; i < 4; i++) {
-                // Clone date
                 const eventDate = new Date(d);
                 eventDate.setDate(d.getDate() + (i * 7));
 
@@ -269,10 +295,15 @@ function processImport() {
 
                 if (!events[dateKey]) events[dateKey] = [];
 
-                // Avoid duplicates usually, but simple push for now
+                // User wants Course Name (Description) to be BOLD (Title)
+                // And Class Code (Title) to be smaller (Description)
+                const finalTitle = description || title;
+                const finalDesc = description ? title : '';
+
                 events[dateKey].push({
                     id: Date.now() + Math.random(),
-                    title: title,
+                    title: finalTitle,
+                    description: finalDesc,
                     time: time,
                     category: 'koc'
                 });

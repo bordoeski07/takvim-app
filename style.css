@@ -287,8 +287,12 @@ input[type="time"] {
     border-radius: 6px;
     font-size: 0.85rem;
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    /* Stack items vertically */
+    justify-content: center;
+    gap: 2px;
+    overflow: hidden;
+    /* Prevent overflow */
 }
 
 /* Import Modal Styles */
