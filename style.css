@@ -192,13 +192,27 @@ h1 {
 .event-title {
     font-weight: 700;
     display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.event-code {
+    display: block;
+    font-size: 0.75em;
+    opacity: 0.7;
+    margin-top: 1px;
+    font-weight: 500;
 }
 
 .event-desc {
     font-weight: 400;
     font-size: 0.7rem;
     opacity: 0.9;
+    display: none;
 }
+
+/* Hide desc if code is shown */
 
 .event-block.koc {
     background-color: var(--color-koc);
@@ -238,12 +252,15 @@ h1 {
     border-radius: 50%;
 }
 
-/* Month View (Legacy/Updated) */
+/* Month View (Restored 7-Column Grid) */
 .calendar-grid.month-view {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    height: 100%;
+    grid-template-columns: repeat(7, 1fr) !important;
+    /* Force 7 columns */
+    auto-rows: minmax(100px, 1fr);
+    /* Equal height rows */
     border-left: 1px solid var(--border-color);
+    width: 100%;
 }
 
 .calendar-grid.month-view .day {
@@ -252,6 +269,10 @@ h1 {
     border-right: 1px solid var(--border-color);
     position: relative;
     cursor: pointer;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .calendar-grid.month-view .day:hover {
@@ -259,17 +280,14 @@ h1 {
 }
 
 .calendar-grid.month-view .day .day-number {
-    position: absolute;
-    top: 5px;
-    right: 8px;
+    align-self: flex-end;
     font-size: 0.85rem;
     color: #aaa;
+    margin-bottom: 4px;
 }
 
 /* Month View Labels */
 .month-event-labels {
-    margin-top: 25px;
-    /* Space for day number */
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -283,6 +301,7 @@ h1 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 .month-label.koc {

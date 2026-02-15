@@ -27,8 +27,9 @@ document.getElementById('todayBtn').addEventListener('click', () => {
     render();
 });
 
-// New: Clear Data Button
-document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
+// Reset System Button (Clear All)
+const clearBtn = document.getElementById('clearDataBtn');
+if (clearBtn) clearBtn.addEventListener('click', clearAllData);
 
 // Modal Elements
 const eventModal = document.getElementById('eventModal');
@@ -60,7 +61,6 @@ function validateAndCleanEvents() {
     let changed = false;
     for (const [key, list] of Object.entries(events)) {
         const validList = list.filter(evt => {
-            // Must have valid startTime and endTime in HH:MM format
             return evt.startTime && evt.endTime &&
                 /^\d{1,2}:\d{2}$/.test(evt.startTime) &&
                 /^\d{1,2}:\d{2}$/.test(evt.endTime);
@@ -80,10 +80,11 @@ function validateAndCleanEvents() {
 }
 
 function clearAllData() {
-    if (confirm('Tüm takvim verileri silinecek. Emin misiniz?')) {
+    if (confirm('Sistemi sıfırlamak istediğinize emin misiniz? Tüm ders programı ve etkinlikler silinecek.')) {
         events = {};
         localStorage.removeItem('calendarEvents');
         render();
+        alert('Sistem sıfırlandı.');
     }
 }
 
@@ -244,11 +245,23 @@ function renderEventsInColumn(container, dayEvents) {
             div.style.width = `${width}%`;
             div.style.left = `${idx * width}%`;
 
+            // Separate Code and Name logic
+            // Try to regex separate if strictly 'CODE Name'
+            // OR just use full title as name if no code found
+            let dispName = evt.title;
+            let dispCode = '';
+
+            const codeMatch = evt.title.match(/^([A-Z]{2,4}\s?\d{3,4})\s*(.*)$/);
+            if (codeMatch) {
+                dispCode = codeMatch[1];
+                dispName = codeMatch[2].trim() || dispCode; // Use code as name if no name
+            }
+
             div.innerHTML = `
-                <span class="event-title">${evt.title}</span>
-                <span class="event-desc">${evt.description || ''}</span>
+                <span class="event-title">${dispName}</span>
+                ${dispCode ? `<span class="event-code">${dispCode}</span>` : ''}
             `;
-            div.title = `${evt.startTime} - ${evt.endTime}`;
+            div.title = `${evt.startTime} - ${evt.endTime}\n${evt.title}`;
             container.appendChild(div);
         });
     });
@@ -266,6 +279,8 @@ function renderMonthGrid() {
     const startDay = (firstDay.getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+    // 7 Columns, standard grid
+    // Previous month empty slots
     for (let i = 0; i < startDay; i++) monthGrid.appendChild(createDiv('day empty'));
 
     for (let i = 1; i <= daysInMonth; i++) {
@@ -279,10 +294,11 @@ function renderMonthGrid() {
         // Month Labels
         if (events[key]) {
             const labelContainer = createDiv('month-event-labels');
-            // Show up to 3 events
             events[key].slice(0, 3).forEach(e => {
                 const badge = createDiv(`month-label ${e.category}`);
-                badge.textContent = e.title;
+                // Try to show Code first (M101), else Title
+                const codeMatch = e.title.match(/^[A-Z]{2,4}\s?\d{3,4}/);
+                badge.textContent = codeMatch ? codeMatch[0] : e.title;
                 labelContainer.appendChild(badge);
             });
             if (events[key].length > 3) {
@@ -294,7 +310,6 @@ function renderMonthGrid() {
             cell.appendChild(labelContainer);
         }
 
-        // Click to view Day
         cell.addEventListener('click', () => {
             currentDate = new Date(year, month, i);
             switchView('day');
@@ -364,53 +379,76 @@ function saveEvent() {
     eventModal.classList.add('hidden');
 }
 
-// --- Smart KUSIS Parser ---
+// --- Advanced Coordinate Parser (KUSIS) ---
 function processImport() {
     const text = importText.value;
     if (!text) return;
 
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const dayKeywords = { 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6, 'sun': 0 }; // keys matches basic parsing
-    let currentDayIdx = -1;
+    const dayKeywords = { 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6, 'sun': 0, 'pazartesi': 1, 'salı': 2, 'çarşamba': 3, 'perşembe': 4, 'cuma': 5 };
+
     let addedCount = 0;
+
+    // We will scan for "Day Blocks".
+    // A Day Block starts with a Day Name.
+    // Inside a Day Block, we look for Time Ranges.
+    // If we find text between Time Ranges, it's the Course Name.
+
+    let currentDayIdx = -1;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const lower = line.toLowerCase();
 
-        // 1. Detect Day
+        // 1. Check if line is a Day Header
+        // Strict check: Line must contain day name and be short (< 20 chars) to avoid false positives in course titles
         let foundDay = false;
         for (const [k, v] of Object.entries(dayKeywords)) {
-            if (lower.includes(k) && lower.length < 20) { // Assume day line is short
+            if (lower.includes(k) && lower.length < 30) {
                 currentDayIdx = v;
                 foundDay = true;
+                console.log(`Found Day: ${k} -> ${v}`);
                 break;
             }
         }
         if (foundDay) continue;
 
-        // 2. Detect Time Range (e.g. 10:00 - 11:15 or 10.00-11.15)
-        // Matches HH:MM - HH:MM
+        // 2. Check if line is a Time Range (Start - End)
+        // Regex for HH:MM - HH:MM or HH.MM - HH.MM
         const timeMatch = line.match(/(\d{1,2}[:.]\d{2})\s*[-–]\s*(\d{1,2}[:.]\d{2})/);
 
         if (timeMatch && currentDayIdx !== -1) {
             let start = timeMatch[1].replace('.', ':');
             let end = timeMatch[2].replace('.', ':');
 
-            // 3. Find Contextual Title 
-            // Often the title is the NEXT line or the PREVIOUS line containing a Code (ABC 123)
-            let title = "Ders";
-            let desc = "";
+            // The course info is usually AROUND this time line.
+            // In KUSIS/Hub copy paste, it's often:
+            // "COMP101 ..."
+            // "10:00 - 11:15"
+            // OR
+            // "10:00 - 11:15"
+            // "COMP101 ..."
 
-            // Check next line for Title
-            if (i + 1 < lines.length) {
-                title = lines[i + 1];
-                // If it looks like a Code + Name e.g. "COMP101 Intro..."
-                // Try to clean it
-                desc = title;
+            // Heuristic: Check Previous Line and Next Line
+            let title = "Ders";
+
+            // Check Previous Line for Code (Most common in vertical lists)
+            if (i > 0) {
+                const prev = lines[i - 1];
+                if (prev.match(/\b[A-Z]{2,4}\s?\d{3,4}\b/) && !dayKeywords[prev.toLowerCase()]) {
+                    title = prev;
+                }
             }
 
-            // Create Event for next 4 weeks
+            // If prev line didn't look like a course, check Next Line
+            if (title === "Ders" && i + 1 < lines.length) {
+                const next = lines[i + 1];
+                if (next.match(/\b[A-Z]{2,4}\s?\d{3,4}\b/)) {
+                    title = next;
+                }
+            }
+
+            // Add Event (for next 4 weeks)
             const d = getStartOfWeek(new Date());
             d.setDate(d.getDate() + (currentDayIdx - 1));
 
@@ -423,7 +461,6 @@ function processImport() {
                 events[key].push({
                     id: Date.now() + Math.random(),
                     title: title,
-                    description: desc,
                     startTime: start,
                     endTime: end,
                     category: 'koc'
@@ -434,12 +471,12 @@ function processImport() {
     }
 
     if (addedCount > 0) {
-        validateAndCleanEvents(); // Ensure validity
+        validateAndCleanEvents();
         localStorage.setItem('calendarEvents', JSON.stringify(events));
         render();
         importModal.classList.add('hidden');
-        alert(`${addedCount} ders başarıyla eklendi!`);
+        alert(`${addedCount} ders eklendi.`);
     } else {
-        alert("Ders programı formatı anlaşılamadı. Lütfen 'Gün' ve 'Saat' bilgilerinin net olduğundan emin olun.");
+        alert("Ders programı formatı algılanamadı. Lütfen önce günlerin, sonra saatlerin olduğu bir metin yapıştırın.");
     }
 }
