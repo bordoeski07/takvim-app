@@ -5,7 +5,7 @@ let events = JSON.parse(localStorage.getItem('calendarEvents')) || {};
 
 // Constants
 const START_HOUR = 8;
-const END_HOUR = 23; // 22:00 + 1 hour buffer
+const END_HOUR = 23;
 const ROW_HEIGHT = 60; // px per hour
 
 // DOM Elements
@@ -27,17 +27,21 @@ document.getElementById('todayBtn').addEventListener('click', () => {
     render();
 });
 
+// New: Clear Data Button
+document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
+
 // Modal Elements
 const eventModal = document.getElementById('eventModal');
 const importModal = document.getElementById('importModal');
 const importText = document.getElementById('importText');
-let selectedSlot = null; // { dateKey, startTime }
+let selectedSlot = null;
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
+    validateAndCleanEvents(); // Clean up "ghost" events on load
     setupTimeAxis();
     render();
-    setInterval(updateCurrentTimeIndicator, 60000); // Update every minute
+    setInterval(updateCurrentTimeIndicator, 60000);
     updateCurrentTimeIndicator();
 
     // Import Logic
@@ -50,11 +54,43 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('saveEventBtn').addEventListener('click', saveEvent);
 });
 
+// --- Data Management ---
+
+function validateAndCleanEvents() {
+    let changed = false;
+    for (const [key, list] of Object.entries(events)) {
+        const validList = list.filter(evt => {
+            // Must have valid startTime and endTime in HH:MM format
+            return evt.startTime && evt.endTime &&
+                /^\d{1,2}:\d{2}$/.test(evt.startTime) &&
+                /^\d{1,2}:\d{2}$/.test(evt.endTime);
+        });
+
+        if (validList.length !== list.length) {
+            events[key] = validList;
+            changed = true;
+        }
+        if (events[key].length === 0) delete events[key];
+    }
+
+    if (changed) {
+        localStorage.setItem('calendarEvents', JSON.stringify(events));
+        console.log('Cleaned up invalid ghost events.');
+    }
+}
+
+function clearAllData() {
+    if (confirm('Tüm takvim verileri silinecek. Emin misiniz?')) {
+        events = {};
+        localStorage.removeItem('calendarEvents');
+        render();
+    }
+}
+
 // --- Navigation & View Switching ---
 
 function switchView(view) {
     currentView = view;
-    // UI Updates
     document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
     document.querySelector(`[data-view="${view}"]`).classList.add('active');
 
@@ -65,7 +101,6 @@ function switchView(view) {
         timeGrid.classList.remove('hidden');
         monthGrid.classList.add('hidden');
 
-        // CSS Grid Columns Update
         if (view === 'day') {
             weekdaysHeader.style.gridTemplateColumns = '50px 1fr';
             weekGrid.style.gridTemplateColumns = '1fr';
@@ -139,31 +174,27 @@ function setupTimeAxis() {
 }
 
 function renderTimeGrid() {
-    weekGrid.innerHTML = ''; // Clear
-    weekGrid.appendChild(currentTimeLine); // Keep indicator
+    weekGrid.innerHTML = '';
+    weekGrid.appendChild(currentTimeLine);
 
     const startOfWeek = getStartOfWeek(currentDate);
     const dayCount = currentView === 'day' ? 1 : 7;
     const loopStart = currentView === 'day' ? currentDate : startOfWeek;
 
-    // Create Columns
     for (let i = 0; i < dayCount; i++) {
         const d = new Date(loopStart);
         if (currentView === 'week') d.setDate(d.getDate() + i);
 
         const dateKey = getDateKey(d);
-
         const col = document.createElement('div');
         col.className = 'day-column';
         col.dataset.date = dateKey;
 
-        // Add existing events
         const dayEvents = events[dateKey] || [];
         renderEventsInColumn(col, dayEvents);
 
-        // Click to add (simplified)
         col.addEventListener('click', (e) => {
-            if (e.target !== col) return; // Ignore clicks on events
+            if (e.target !== col) return;
             const rect = col.getBoundingClientRect();
             const y = e.clientY - rect.top + weekGrid.scrollTop;
             const hour = Math.floor(y / ROW_HEIGHT) + START_HOUR;
@@ -177,11 +208,9 @@ function renderTimeGrid() {
 function renderEventsInColumn(container, dayEvents) {
     if (!dayEvents.length) return;
 
-    // Calculate Grid Positions
     dayEvents.forEach(evt => {
         const [startH, startM] = evt.startTime.split(':').map(Number);
         const [endH, endM] = evt.endTime.split(':').map(Number);
-
         const startVal = startH + (startM / 60);
         const endVal = endH + (endM / 60);
 
@@ -189,13 +218,10 @@ function renderEventsInColumn(container, dayEvents) {
         evt.height = (endVal - startVal) * ROW_HEIGHT;
     });
 
-    // Simple Overlap Logic
-    // Sort by start time
     dayEvents.sort((a, b) => a.top - b.top);
 
-    // Check overlaps (simplified: just split overlap width)
+    // Overlap Logic
     const groups = [];
-    // Group overlapping events
     dayEvents.forEach(evt => {
         let placed = false;
         for (let group of groups) {
@@ -222,7 +248,6 @@ function renderEventsInColumn(container, dayEvents) {
                 <span class="event-title">${evt.title}</span>
                 <span class="event-desc">${evt.description || ''}</span>
             `;
-
             div.title = `${evt.startTime} - ${evt.endTime}`;
             container.appendChild(div);
         });
@@ -238,60 +263,72 @@ function renderMonthGrid() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
-    const startDay = (firstDay.getDay() + 6) % 7; // Mon=0
+    const startDay = (firstDay.getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     for (let i = 0; i < startDay; i++) monthGrid.appendChild(createDiv('day empty'));
 
     for (let i = 1; i <= daysInMonth; i++) {
         const cell = createDiv('day');
-        cell.innerHTML = `<div>${i}</div>`;
+        const dayNum = createDiv('day-number');
+        dayNum.textContent = i;
+        cell.appendChild(dayNum);
+
         const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
 
-        // Dots
+        // Month Labels
         if (events[key]) {
-            const dots = createDiv('event-dots');
-            events[key].forEach(e => {
-                const dot = createDiv(`dot ${e.category}`);
-                dots.appendChild(dot);
+            const labelContainer = createDiv('month-event-labels');
+            // Show up to 3 events
+            events[key].slice(0, 3).forEach(e => {
+                const badge = createDiv(`month-label ${e.category}`);
+                badge.textContent = e.title;
+                labelContainer.appendChild(badge);
             });
-            cell.appendChild(dots);
+            if (events[key].length > 3) {
+                const more = createDiv('month-label');
+                more.style.backgroundColor = '#333';
+                more.textContent = `+${events[key].length - 3}`;
+                labelContainer.appendChild(more);
+            }
+            cell.appendChild(labelContainer);
         }
+
+        // Click to view Day
+        cell.addEventListener('click', () => {
+            currentDate = new Date(year, month, i);
+            switchView('day');
+        });
+
         monthGrid.appendChild(cell);
     }
 }
 
 // --- Helpers ---
-
 function getStartOfWeek(date) {
     const d = new Date(date);
     const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Mon start
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     return new Date(d.setDate(diff));
 }
-
 function getDateKey(d) {
     return d.toISOString().split('T')[0];
 }
-
 function isToday(d) {
     const today = new Date();
     return d.getDate() === today.getDate() &&
         d.getMonth() === today.getMonth() &&
         d.getFullYear() === today.getFullYear();
 }
-
 function createDiv(className) {
     const d = document.createElement('div');
     d.className = className;
     return d;
 }
-
 function updateCurrentTimeIndicator() {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-
     if (hours < START_HOUR || hours > END_HOUR) {
         currentTimeLine.style.display = 'none';
         return;
@@ -301,17 +338,13 @@ function updateCurrentTimeIndicator() {
     currentTimeLine.style.top = `${top}px`;
 }
 
-// --- Event Actions ---
-
 function openEventModal(dateKey, hour) {
     selectedSlot = { dateKey, hour };
     const dateDisp = new Date(dateKey).toLocaleDateString();
     document.getElementById('modalDate').textContent = `${dateDisp} - ${hour}:00`;
-
     document.getElementById('eventTitle').value = '';
     document.getElementById('eventStartTime').value = `${hour.toString().padStart(2, '0')}:00`;
     document.getElementById('eventEndTime').value = `${(hour + 1).toString().padStart(2, '0')}:00`;
-
     eventModal.classList.remove('hidden');
 }
 
@@ -323,69 +356,90 @@ function saveEvent() {
     const cat = document.querySelector('input[name="category"]:checked').value;
 
     if (!title) return alert('İsim giriniz');
-
     const key = selectedSlot.dateKey;
     if (!events[key]) events[key] = [];
-
-    events[key].push({
-        id: Date.now(),
-        title, startTime: start, endTime: end, category: cat
-    });
-
+    events[key].push({ id: Date.now(), title, startTime: start, endTime: end, category: cat });
     localStorage.setItem('calendarEvents', JSON.stringify(events));
     render();
     eventModal.classList.add('hidden');
 }
 
-// --- Importer ---
-
+// --- Smart KUSIS Parser ---
 function processImport() {
     const text = importText.value;
     if (!text) return;
 
-    const lines = text.split('\n');
-    const dayMap = { 'pazartesi': 1, 'salı': 2, 'çarşamba': 3, 'perşembe': 4, 'cuma': 5 };
-    // English mapping omitted for brevity but logic is same
-    // Add simple check for now
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const dayKeywords = { 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6, 'sun': 0 }; // keys matches basic parsing
+    let currentDayIdx = -1;
+    let addedCount = 0;
 
-    let count = 0;
-    lines.forEach(line => {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const lower = line.toLowerCase();
-        let dayIdx = -1;
-        for (const [k, v] of Object.entries(dayMap)) if (lower.includes(k)) dayIdx = v;
-        if (dayIdx === -1) return;
 
-        // Extract Time Range: 10:00 - 11:15
-        const timeMatch = line.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
-        if (!timeMatch) return;
-
-        const codeMatch = line.match(/\b[A-Z]{2,4}\s?\d{3,4}\b/);
-        const title = codeMatch ? codeMatch[0] : "Ders";
-
-        // Generate for 4 weeks
-        const d = getStartOfWeek(new Date());
-        d.setDate(d.getDate() + (dayIdx - 1)); // 1-based index fix
-
-        for (let i = 0; i < 4; i++) {
-            const eventDate = new Date(d);
-            eventDate.setDate(d.getDate() + (i * 7));
-            const key = getDateKey(eventDate);
-
-            if (!events[key]) events[key] = [];
-            events[key].push({
-                id: Date.now() + Math.random(),
-                title: title,
-                description: line.substring(0, 20) + '...', // Simple desc
-                startTime: timeMatch[1],
-                endTime: timeMatch[2],
-                category: 'koc'
-            });
-            count++;
+        // 1. Detect Day
+        let foundDay = false;
+        for (const [k, v] of Object.entries(dayKeywords)) {
+            if (lower.includes(k) && lower.length < 20) { // Assume day line is short
+                currentDayIdx = v;
+                foundDay = true;
+                break;
+            }
         }
-    });
+        if (foundDay) continue;
 
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
-    render();
-    importModal.classList.add('hidden');
-    alert(`${count} ders eklendi.`);
+        // 2. Detect Time Range (e.g. 10:00 - 11:15 or 10.00-11.15)
+        // Matches HH:MM - HH:MM
+        const timeMatch = line.match(/(\d{1,2}[:.]\d{2})\s*[-–]\s*(\d{1,2}[:.]\d{2})/);
+
+        if (timeMatch && currentDayIdx !== -1) {
+            let start = timeMatch[1].replace('.', ':');
+            let end = timeMatch[2].replace('.', ':');
+
+            // 3. Find Contextual Title 
+            // Often the title is the NEXT line or the PREVIOUS line containing a Code (ABC 123)
+            let title = "Ders";
+            let desc = "";
+
+            // Check next line for Title
+            if (i + 1 < lines.length) {
+                title = lines[i + 1];
+                // If it looks like a Code + Name e.g. "COMP101 Intro..."
+                // Try to clean it
+                desc = title;
+            }
+
+            // Create Event for next 4 weeks
+            const d = getStartOfWeek(new Date());
+            d.setDate(d.getDate() + (currentDayIdx - 1));
+
+            for (let w = 0; w < 4; w++) {
+                const eventDate = new Date(d);
+                eventDate.setDate(d.getDate() + (w * 7));
+                const key = getDateKey(eventDate);
+
+                if (!events[key]) events[key] = [];
+                events[key].push({
+                    id: Date.now() + Math.random(),
+                    title: title,
+                    description: desc,
+                    startTime: start,
+                    endTime: end,
+                    category: 'koc'
+                });
+                addedCount++;
+            }
+        }
+    }
+
+    if (addedCount > 0) {
+        validateAndCleanEvents(); // Ensure validity
+        localStorage.setItem('calendarEvents', JSON.stringify(events));
+        render();
+        importModal.classList.add('hidden');
+        alert(`${addedCount} ders başarıyla eklendi!`);
+    } else {
+        alert("Ders programı formatı anlaşılamadı. Lütfen 'Gün' ve 'Saat' bilgilerinin net olduğundan emin olun.");
+    }
 }

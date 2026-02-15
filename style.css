@@ -250,7 +250,57 @@ h1 {
     min-height: 100px;
     border-bottom: 1px solid var(--border-color);
     border-right: 1px solid var(--border-color);
+    position: relative;
+    cursor: pointer;
 }
+
+.calendar-grid.month-view .day:hover {
+    background: #1a1a1a;
+}
+
+.calendar-grid.month-view .day .day-number {
+    position: absolute;
+    top: 5px;
+    right: 8px;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+
+/* Month View Labels */
+.month-event-labels {
+    margin-top: 25px;
+    /* Space for day number */
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.month-label {
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.month-label.koc {
+    background: var(--color-koc);
+}
+
+.month-label.stock {
+    background: var(--color-stock);
+}
+
+.month-label.content {
+    background: var(--color-content);
+}
+
+.month-label.personal {
+    background: var(--color-personal);
+}
+
 
 .hidden {
     display: none !important;
@@ -335,6 +385,10 @@ button {
     background: var(--color-koc);
     color: white;
     width: 100%;
+}
+
+#clearDataBtn:hover {
+    background: rgba(239, 68, 68, 0.1);
 }
 
 /* Mobile Optimizations */
