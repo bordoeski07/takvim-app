@@ -9,10 +9,10 @@
     /* Sapphire Blue */
     --color-stock: #50c878;
     /* Emerald Green */
-    --color-content: #8a2be2;
-    /* Violet */
-    --color-personal: #36454f;
-    /* Anthracite */
+    --color-content: #ff9f1c;
+    /* Bright Orange */
+    --color-personal: #4a5568;
+    /* Slate Gray */
 
     --grid-line-color: #2a2a2a;
     --time-text-color: #888;
@@ -113,12 +113,12 @@ h1 {
 
 .nav-btn.danger {
     color: #ef4444;
+    /* Red */
     border-color: #ef444433;
     font-size: 1.2rem;
     line-height: 0.8;
 }
 
-/* Weekdays Header */
 .weekdays {
     display: grid;
     grid-template-columns: 50px repeat(7, 1fr);
@@ -136,18 +136,12 @@ h1 {
     color: var(--color-koc);
 }
 
-.weekdays div:first-child {
-    visibility: hidden;
-}
-
-/* Views Container */
 .views-container {
     flex: 1;
     overflow: hidden;
     position: relative;
 }
 
-/* Time Grid (Week View) */
 .time-grid-container {
     display: grid;
     grid-template-columns: 50px 1fr;
@@ -180,8 +174,7 @@ h1 {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     position: relative;
-    background:
-        linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
+    background: linear-gradient(to bottom, var(--grid-line-color) 1px, transparent 1px);
     background-size: 100% 60px;
     min-height: 100%;
 }
@@ -195,27 +188,40 @@ h1 {
 /* Event Blocks */
 .event-block {
     position: absolute;
-    border-radius: 4px;
-    padding: 4px;
+    border-radius: 6px;
+    padding: 2px 4px;
     font-size: 0.75rem;
     overflow: hidden;
     color: white;
     cursor: pointer;
-    /* Can click to edit later? */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
     z-index: 10;
-    transition: transform 0.1s;
-    border-left: 3px solid rgba(255, 255, 255, 0.4);
+    transition: transform 0.1s, z-index 0.1s;
+    border-left: 3px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    flex-direction: column;
 }
 
 .event-block:hover {
-    z-index: 50;
-    transform: scale(1.02);
+    z-index: 100 !important;
+    transform: scale(1.03);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.event-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 1px;
+}
+
+.event-icon {
+    font-size: 0.9em;
+    opacity: 0.9;
 }
 
 .event-title {
-    font-weight: 700;
-    display: block;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -224,55 +230,40 @@ h1 {
 .event-loc {
     font-size: 0.75em;
     opacity: 0.8;
-    display: block;
     font-style: italic;
-    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Delete Button on Event */
-.event-delete {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 16px;
-    height: 16px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: white;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.2s, background 0.2s;
-}
-
-.event-block:hover .event-delete {
-    opacity: 1;
-}
-
-.event-delete:hover {
-    background: #ef4444;
-}
-
+/* Category Colors */
 .event-block.koc {
     background-color: var(--color-koc);
+    border-color: #4c9aff;
 }
 
 .event-block.stock {
     background-color: var(--color-stock);
+    border-color: #85e8a3;
 }
 
 .event-block.content {
     background-color: var(--color-content);
+    border-color: #ffcd69;
+    color: #1a1a1a;
+}
+
+/* Dark text for orange */
+.event-block.content .event-loc {
+    opacity: 0.9;
 }
 
 .event-block.personal {
     background-color: var(--color-personal);
+    border-color: #718096;
 }
 
-/* Month View (Strict Grid) */
+/* Month View */
 .calendar-grid.month-view {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -290,6 +281,7 @@ h1 {
     display: flex;
     flex-direction: column;
     padding: 4px;
+    overflow: hidden;
 }
 
 .calendar-grid.month-view .day:hover {
@@ -304,8 +296,6 @@ h1 {
 }
 
 .month-label {
-    background-color: var(--color-koc);
-    color: white;
     font-size: 0.7rem;
     padding: 2px 4px;
     margin-bottom: 2px;
@@ -314,21 +304,32 @@ h1 {
     overflow: hidden;
     text-overflow: ellipsis;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.month-label.koc {
+    background-color: var(--color-koc);
+    color: white;
 }
 
 .month-label.stock {
     background-color: var(--color-stock);
+    color: white;
 }
 
 .month-label.content {
     background-color: var(--color-content);
+    color: black;
 }
 
 .month-label.personal {
     background-color: var(--color-personal);
+    color: white;
 }
 
-/* Form Styles */
+/* Modal & Form */
 .modal {
     position: fixed;
     top: 0;
@@ -344,11 +345,12 @@ h1 {
 
 .modal-content {
     background: var(--card-bg);
-    padding: 20px;
+    padding: 25px;
     border-radius: 12px;
-    width: 90%;
-    max-width: 400px;
+    width: 95%;
+    max-width: 420px;
     color: white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
@@ -376,7 +378,7 @@ h1 {
     display: block;
     font-size: 0.85rem;
     color: #aaa;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
 }
 
 .form-row {
@@ -391,11 +393,11 @@ h1 {
 input,
 select {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     background: #2a2a2a;
-    border: 1px solid var(--border-color);
+    border: 1px solid #333;
     color: white;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.95rem;
 }
 
@@ -403,59 +405,114 @@ input:focus,
 select:focus {
     border-color: var(--color-koc);
     outline: none;
+    background: #333;
 }
 
-.category-options {
+/* Type Toggle */
+.type-toggle-container {
+    background: #2a2a2a;
+    padding: 4px;
+    border-radius: 8px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    gap: 5px;
+    margin-bottom: 20px;
+}
+
+.type-opt {
+    flex: 1;
+    text-align: center;
+    cursor: pointer;
+}
+
+.type-opt input {
+    display: none;
+}
+
+.type-opt span {
+    display: block;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #888;
+    transition: 0.2s;
+}
+
+.type-opt input:checked+span {
+    background: #333;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Category Options */
+.category-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
 }
 
 .cat-opt {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     cursor: pointer;
     font-size: 0.9rem;
     background: #2a2a2a;
-    padding: 6px 10px;
-    border-radius: 20px;
+    padding: 10px;
+    border-radius: 8px;
     border: 1px solid transparent;
+    transition: 0.2s;
+}
+
+.cat-opt:hover {
+    background: #333;
 }
 
 .cat-opt:has(input:checked) {
-    border-color: white;
     background: #333;
+    border-color: currentColor;
 }
 
 .cat-opt input {
     display: none;
 }
 
-.dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+.cat-opt.koc {
+    color: #4c9aff;
 }
 
-.dot.koc {
-    background: var(--color-koc);
+.cat-opt.stock {
+    color: #85e8a3;
 }
 
-.dot.stock {
-    background: var(--color-stock);
+.cat-opt.content {
+    color: #ffcd69;
 }
 
-.dot.content {
-    background: var(--color-content);
+.cat-opt.personal {
+    color: #a0aec0;
 }
 
-.dot.personal {
-    background: var(--color-personal);
+.cat-opt .icon {
+    font-size: 1.1rem;
+}
+
+.info-text {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: -10px;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
 }
 
 .primary-btn {
-    width: 100%;
+    flex: 1;
     padding: 12px;
     background: var(--color-koc);
     color: white;
@@ -463,14 +520,24 @@ select:focus {
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
-    font-size: 1rem;
-    margin-top: 10px;
 }
 
-/* Current Time Line */
+.danger-btn {
+    padding: 12px 20px;
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.danger-btn:hover {
+    background: #ef4444;
+    color: white;
+}
+
 .current-time-line {
     position: absolute;
-    line-height: 0;
     left: 0;
     width: 100%;
     height: 2px;

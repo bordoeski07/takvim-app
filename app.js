@@ -2,11 +2,20 @@
 let currentDate = new Date();
 let currentView = 'week';
 let events = JSON.parse(localStorage.getItem('calendarEvents')) || {};
+let editingEventId = null; // Track if we are editing
 
 // Constants
 const START_HOUR = 8;
 const END_HOUR = 23;
 const ROW_HEIGHT = 60;
+
+// Icons Mapping
+const CAT_ICONS = {
+    'koc': '📘',
+    'stock': '📈',
+    'personal': '📅',
+    'content': '🎥'
+};
 
 // DOM Elements
 const dom = {
@@ -20,13 +29,23 @@ const dom = {
     // Modals
     eventModal: document.getElementById('eventModal'),
     eventForm: document.getElementById('eventForm'),
+    modalTitle: document.getElementById('modalTitle'),
+    deleteBtn: document.getElementById('deleteBtn'),
+    saveBtn: document.getElementById('saveBtn'),
 
-    // Inputs
+    // Form Inputs
+    typeRadios: document.getElementsByName('eventType'),
     title: document.getElementById('evtTitle'),
     location: document.getElementById('evtLocation'),
     day: document.getElementById('evtDay'),
+    date: document.getElementById('evtDate'),
     start: document.getElementById('evtStart'),
-    end: document.getElementById('evtEnd')
+    end: document.getElementById('evtEnd'),
+
+    // Sections
+    dayRow: document.getElementById('daySelectRow'),
+    dateRow: document.getElementById('dateSelectRow'),
+    recurrenceInfo: document.getElementById('recurrenceInfo')
 };
 
 // Init
@@ -38,18 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('todayBtn').addEventListener('click', () => { currentDate = new Date(); render(); });
 
     // Actions
-    document.getElementById('addEventBtn').addEventListener('click', openAddModal);
+    document.getElementById('addEventBtn').addEventListener('click', () => openModal()); // New Mode
     document.getElementById('clearDataBtn').addEventListener('click', factoryReset);
+    dom.deleteBtn.addEventListener('click', handleDelete);
 
     // Form
     dom.eventForm.addEventListener('submit', handleFormSubmit);
     document.querySelector('.close-btn').addEventListener('click', () => dom.eventModal.classList.add('hidden'));
 
+    // Type Toggle Logic
+    dom.typeRadios.forEach(r => r.addEventListener('change', toggleFormFields));
+
     // Setup
     setupTimeAxis();
     render();
-
-    // Clock
     setInterval(updateTimeIndicator, 60000);
     updateTimeIndicator();
 });
@@ -63,11 +84,71 @@ function factoryReset() {
     }
 }
 
-function openAddModal() {
+function toggleFormFields() {
+    const type = document.querySelector('input[name="eventType"]:checked').value;
+    if (type === 'course') {
+        dom.dayRow.classList.remove('hidden');
+        dom.dateRow.classList.add('hidden');
+        dom.recurrenceInfo.classList.remove('hidden');
+    } else {
+        dom.dayRow.classList.add('hidden');
+        dom.dateRow.classList.remove('hidden');
+        dom.recurrenceInfo.classList.add('hidden');
+    }
+}
+
+function openModal(evtToEdit = null) {
     dom.eventForm.reset();
+    dom.deleteBtn.classList.add('hidden');
+    editingEventId = null;
+
+    // Defaults
+    dom.modalTitle.textContent = "Yeni Ekle";
     document.getElementById('evtStart').value = "09:00";
     document.getElementById('evtEnd').value = "10:30";
+    // Set today's date for single event
+    dom.date.valueAsDate = new Date();
+
+    // Default Type: Course
+    document.querySelector('input[name="eventType"][value="course"]').checked = true;
+    toggleFormFields();
+
+    // If Editing
+    if (evtToEdit) {
+        editingEventId = evtToEdit.id;
+        dom.modalTitle.textContent = "Düzenle";
+        dom.deleteBtn.classList.remove('hidden');
+
+        dom.title.value = evtToEdit.title;
+        dom.location.value = evtToEdit.location || '';
+        dom.start.value = evtToEdit.startTime;
+        dom.end.value = evtToEdit.endTime;
+
+        // Category
+        const catRadio = document.querySelector(`input[name="evtCat"][value="${evtToEdit.category}"]`);
+        if (catRadio) catRadio.checked = true;
+
+        // Determine Type based on context (Hard to know strict type from just stored event, but we can infer or force 'single' for safe editing)
+        // For simplicity: Edit Mode always shows Date Picker for explicit date change, masking as "Single" edit.
+        document.querySelector('input[name="eventType"][value="single"]').checked = true;
+        toggleFormFields();
+
+        // Find existing date
+        // Reverse engineering date from ID or Key is needed? 
+        // We passed the obj, but we need the DATE KEY it belongs to.
+        // Let's pass dateStr in openModal if possible, or store date in event obj.
+        // NOTE: Our data structure: { '2024-01-01': [events] }
+        // We need to know which date we are editing.
+        // We will pass `dateStr` to openModal.
+    }
+
     dom.eventModal.classList.remove('hidden');
+}
+
+// Overload openModal to accept context
+function openEditModal(evt, dateKey) {
+    openModal(evt);
+    dom.date.value = dateKey; // Set the date picker to the event's date
 }
 
 function handleFormSubmit(e) {
@@ -75,66 +156,78 @@ function handleFormSubmit(e) {
 
     const title = dom.title.value;
     const loc = dom.location.value;
-    const dayIdx = parseInt(dom.day.value); // 0=Sun, 1=Mon...
     const start = dom.start.value;
     const end = dom.end.value;
     const cat = document.querySelector('input[name="evtCat"]:checked').value;
+    const type = document.querySelector('input[name="eventType"]:checked').value;
 
-    // Calculate Date based on Current Week View
-    // We want the event to appear in the CURRENT week being viewed.
-    // getStartOfWeek returns Monday of current view
-    const weekStart = getStartOfWeek(currentDate);
-    // If dayIdx is 0 (Sunday), in JS Date, Sunday is start of week usually, but we treat Mon as start.
-    // Our getStartOfWeek returns Monday. 
-    // If user picks Sunday (0), that is Monday + 6 days.
-    // If user picks Tuesday (2), that is Monday + 1 day.
-
-    // Adjust dayIdx to 0-6 Monday based logic
-    // Input values: 1(Mon), 2(Tue), ..., 6(Sat), 0(Sun)
-    // Map to offset from Monday: Mon=0, Tue=1... Sun=6
-    const offset = dayIdx === 0 ? 6 : dayIdx - 1;
-
-    const targetDate = new Date(weekStart);
-    targetDate.setDate(weekStart.getDate() + offset);
-
-    // Add Event for this specific date (+ next 4 weeks like before? No, manual should be specific or maybe recurring later. Let's do single instance for manual "New Event" focus, or keep the 4-week logic if user wants schedule. User said "Week View", usually implies recurring. Let's do 1 instance for "Manual Add" as it's cleaner, or maybe 4 weeks to mimic semester. Let's stick to 1 instance for safety, easy to add more).
-    // Actually, user context is "Course Schedule", so let's add for 4 weeks to be helpful.
-
-    let added = 0;
-    for (let i = 0; i < 4; i++) {
-        const d = new Date(targetDate);
-        d.setDate(targetDate.getDate() + (i * 7));
-        const key = getDateKey(d);
-
-        if (!events[key]) events[key] = [];
-        events[key].push({
-            id: Date.now() + Math.random(),
-            title: title,
-            location: loc,
-            startTime: start,
-            endTime: end,
-            category: cat
-        });
-        added++;
+    // Delete previous if editing
+    if (editingEventId) {
+        // We only delete the SPECIFIC instance being edited (Single instance edit)
+        // Finding and deleting...
+        const oldDateVal = dom.date.value; // Valid because we switch to Single mode on edit
+        deleteEventById(editingEventId);
     }
 
-    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    // CREATE NEW
+    if (type === 'course') {
+        // Recurring Logic (16 Weeks)
+        const dayIdx = parseInt(dom.day.value); // 0=Sun, 1=Mon...
+        const weekStart = getStartOfWeek(currentDate);
+        const offset = dayIdx === 0 ? 6 : dayIdx - 1;
+        const targetDate = new Date(weekStart);
+        targetDate.setDate(weekStart.getDate() + offset);
+
+        for (let i = 0; i < 16; i++) { // 16 Weeks Semester
+            const d = new Date(targetDate);
+            d.setDate(targetDate.getDate() + (i * 7));
+            saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
+        }
+    } else {
+        // Single Event
+        const dateVal = dom.date.value;
+        if (!dateVal) return alert("Lütfen tarih seçin.");
+        const d = new Date(dateVal);
+        saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
+    }
+
     dom.eventModal.classList.add('hidden');
     render();
 }
 
-function deleteEvent(dateKey, evtId) {
-    if (!events[dateKey]) return;
-    if (confirm("Bu dersi silmek istiyor musunuz?")) {
-        events[dateKey] = events[dateKey].filter(e => e.id !== evtId);
-        if (events[dateKey].length === 0) delete events[dateKey];
-        localStorage.setItem('calendarEvents', JSON.stringify(events));
+function saveEventToDate(dateObj, data) {
+    const key = getDateKey(dateObj);
+    if (!events[key]) events[key] = [];
+    events[key].push({
+        id: Date.now() + Math.random(), // Unique ID
+        ...data
+    });
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+}
+
+function handleDelete() {
+    if (editingEventId && confirm("Silmek istediğinize emin misiniz?")) {
+        deleteEventById(editingEventId);
+        dom.eventModal.classList.add('hidden');
         render();
     }
 }
 
-// --- View ---
+function deleteEventById(id) {
+    // Search everywhere (inefficient but safe) or we need dateKey.
+    // Ideally we pass dateKey. For now, iterate all.
+    for (const key in events) {
+        const initialLen = events[key].length;
+        events[key] = events[key].filter(e => e.id !== id);
+        if (events[key].length !== initialLen && events[key].length === 0) {
+            delete events[key];
+        }
+        if (events[key].length !== initialLen) break; // Found and deleted
+    }
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+}
 
+// --- View ---
 function switchView(v) {
     currentView = v;
     document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
@@ -166,7 +259,6 @@ function navigate(dir) {
 }
 
 // --- Render ---
-
 function render() {
     dom.monthYear.textContent = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(currentDate);
 
@@ -179,7 +271,6 @@ function render() {
     for (let i = 0; i < count; i++) {
         const d = new Date(start);
         if (currentView === 'week') d.setDate(d.getDate() + i);
-
         const isToday = getDateKey(d) === getDateKey(new Date());
 
         const div = document.createElement('div');
@@ -208,6 +299,20 @@ function renderWeek(startDate, dayCount) {
         const dayEvents = events[key] || [];
         renderEventsInColumn(col, dayEvents, key);
 
+        // Click on column to quick add
+        col.addEventListener('dblclick', (e) => {
+            if (e.target !== col) return;
+            const rect = col.getBoundingClientRect();
+            const y = e.clientY - rect.top; // Relative to viewport actually? weekGrid scroll?
+            // Need relative to col top.
+            // Simplified: Just Open Modal defaulted to this day.
+            dom.date.value = key;
+            document.querySelector('input[name="eventType"][value="single"]').checked = true;
+            toggleFormFields();
+            openModal();
+            dom.date.value = key; // Re-set after reset
+        });
+
         dom.weekGrid.appendChild(col);
     }
 }
@@ -215,7 +320,6 @@ function renderWeek(startDate, dayCount) {
 function renderEventsInColumn(container, dayEvents, dateKey) {
     if (!dayEvents.length) return;
 
-    // 1. Calculate Positions
     const items = dayEvents.map(evt => {
         const [sh, sm] = evt.startTime.split(':').map(Number);
         const [eh, em] = evt.endTime.split(':').map(Number);
@@ -224,20 +328,15 @@ function renderEventsInColumn(container, dayEvents, dateKey) {
         return { ...evt, top, height, bottom: top + height };
     });
 
-    // Sort logic
     items.sort((a, b) => a.top - b.top);
 
-    // 2. Overlap Grouping (Smart Side-by-Side)
-    // Simple greedy packing approach
     const columns = [];
-
     items.forEach(evt => {
-        // Find first column where this event fits
         let placed = false;
         for (let i = 0; i < columns.length; i++) {
             const col = columns[i];
             const lastEvt = col[col.length - 1];
-            if (lastEvt.bottom <= evt.top + 0.1) { // 0.1 tolerance
+            if (lastEvt.bottom <= evt.top + 0.1) {
                 col.push(evt);
                 evt.colIndex = i;
                 placed = true;
@@ -252,7 +351,6 @@ function renderEventsInColumn(container, dayEvents, dateKey) {
 
     const totalCols = columns.length;
 
-    // 3. Render
     items.forEach(evt => {
         const el = document.createElement('div');
         el.className = `event-block ${evt.category}`;
@@ -261,16 +359,19 @@ function renderEventsInColumn(container, dayEvents, dateKey) {
         el.style.left = `${(evt.colIndex / totalCols) * 100}%`;
         el.style.width = `${(1 / totalCols) * 100}%`;
 
+        const icon = CAT_ICONS[evt.category] || '';
+
         el.innerHTML = `
-            <span class="event-title">${evt.title}</span>
+            <div class="event-header">
+                <span class="event-icon">${icon}</span>
+                <span class="event-title">${evt.title}</span>
+            </div>
             <span class="event-loc">${evt.location || ''}</span>
-            <div class="event-delete">✕</div>
         `;
 
-        // Delete Action
-        el.querySelector('.event-delete').addEventListener('click', (e) => {
+        el.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteEvent(dateKey, evt.id);
+            openEditModal(evt, dateKey);
         });
 
         container.appendChild(el);
@@ -295,8 +396,8 @@ function renderMonth() {
         (events[key] || []).slice(0, 4).forEach(e => {
             const badge = document.createElement('div');
             badge.className = `month-label ${e.category}`;
-            // Prioritize Location if exists (e.g. M203), else Title
-            badge.textContent = e.location ? e.location : e.title;
+            const icon = CAT_ICONS[e.category] || '';
+            badge.innerHTML = `<span>${icon}</span> ${e.location ? e.location : e.title}`;
             cell.appendChild(badge);
         });
 

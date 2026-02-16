@@ -38,61 +38,70 @@
 
             <div class="header-right">
                 <button id="addEventBtn" class="nav-btn primary" title="Yeni Ekle">+</button>
-                <button id="clearDataBtn" class="nav-btn danger" title="Sistemi Sıfırla">&times;</button>
                 <div class="nav-sep"></div>
                 <button id="prevBtn" class="nav-btn">&lt;</button>
                 <button id="todayBtn" class="nav-btn">Bugün</button>
                 <button id="nextBtn" class="nav-btn">&gt;</button>
+                <div class="nav-sep"></div>
+                <button id="clearDataBtn" class="nav-btn danger" title="Sistemi Sıfırla">&times;</button>
             </div>
         </header>
 
-        <!-- Weekdays Header (Shared) -->
-        <div id="weekdaysHeader" class="weekdays">
-            <!-- Injected via JS -->
-        </div>
+        <!-- Weekdays Header -->
+        <div id="weekdaysHeader" class="weekdays"></div>
 
         <!-- Views Container -->
         <div class="views-container">
-            <!-- Time Grid (Week & Day) -->
+            <!-- Time Grid -->
             <div id="timeGrid" class="time-grid-container">
-                <div class="time-axis">
-                    <!-- 08:00 - 22:00 Injected JS -->
-                </div>
+                <div class="time-axis"></div>
                 <div id="weekGrid" class="week-grid">
-                    <!-- Columns & Events Injected JS -->
                     <div id="currentTimeLine" class="current-time-line"></div>
                 </div>
             </div>
 
-            <!-- Month Grid (Hidden by default) -->
-            <div id="monthGrid" class="calendar-grid month-view hidden">
-                <!-- Days injected via JS -->
-            </div>
+            <!-- Month Grid -->
+            <div id="monthGrid" class="calendar-grid month-view hidden"></div>
         </div>
     </div>
 
-    <!-- Manual Add Event Modal -->
+    <!-- Advanced Add Event Modal -->
     <div id="eventModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Yeni Etkinlik</h2>
+                <h2 id="modalTitle">Yeni Ekle</h2>
                 <span class="close-btn">&times;</span>
             </div>
 
             <form id="eventForm">
+                <input type="hidden" id="editEventId"> <!-- For Edit Mode -->
+
+                <!-- Type Toggle -->
+                <div class="type-toggle-container">
+                    <label class="type-opt">
+                        <input type="radio" name="eventType" value="course" checked>
+                        <span>Ders (Tekrarlı)</span>
+                    </label>
+                    <label class="type-opt">
+                        <input type="radio" name="eventType" value="single">
+                        <span>Etkinlik (Tek)</span>
+                    </label>
+                </div>
+
                 <div class="form-group">
-                    <label>Ders / Etkinlik Adı</label>
+                    <label>Başlık</label>
                     <input type="text" id="evtTitle" placeholder="Örn: MATH 203" required>
                 </div>
 
                 <div class="form-group">
-                    <label>Sınıf / Konum</label>
+                    <label>Konum / Sınıf</label>
                     <input type="text" id="evtLocation" placeholder="Örn: SOSB10">
                 </div>
 
-                <div class="form-row">
+                <!-- Dynamic Date Section -->
+                <div class="form-row" id="daySelectRow">
                     <div class="form-group">
-                        <label>Gün</label>
+                        <label>Gün (Her Hafta)</label>
                         <select id="evtDay">
                             <option value="1">Pazartesi</option>
                             <option value="2">Salı</option>
@@ -102,6 +111,13 @@
                             <option value="6">Cumartesi</option>
                             <option value="0">Pazar</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="form-row hidden" id="dateSelectRow">
+                    <div class="form-group">
+                        <label>Tarih</label>
+                        <input type="date" id="evtDate">
                     </div>
                 </div>
 
@@ -119,21 +135,39 @@
                 <div class="form-group">
                     <label>Kategori</label>
                     <div class="category-options">
-                        <label class="cat-opt"><input type="radio" name="evtCat" value="koc" checked> <span
-                                class="dot koc"></span> Ders</label>
-                        <label class="cat-opt"><input type="radio" name="evtCat" value="stock"> <span
-                                class="dot stock"></span> Borsa</label>
-                        <label class="cat-opt"><input type="radio" name="evtCat" value="personal"> <span
-                                class="dot personal"></span> Kişisel</label>
-                        <label class="cat-opt"><input type="radio" name="evtCat" value="content"> <span
-                                class="dot content"></span> İçerik</label>
+                        <label class="cat-opt koc">
+                            <input type="radio" name="evtCat" value="koc" checked>
+                            <span class="icon">📘</span> Ders
+                        </label>
+                        <label class="cat-opt stock">
+                            <input type="radio" name="evtCat" value="stock">
+                            <span class="icon">📈</span> Borsa
+                        </label>
+                        <label class="cat-opt personal">
+                            <input type="radio" name="evtCat" value="personal">
+                            <span class="icon">📅</span> Kişisel
+                        </label>
+                        <label class="cat-opt content">
+                            <input type="radio" name="evtCat" value="content">
+                            <span class="icon">🎥</span> İçerik
+                        </label>
                     </div>
                 </div>
 
-                <button type="submit" id="saveBtn" class="primary-btn">Kaydet</button>
+                <!-- Recurrence Info (Visual only for Course mode) -->
+                <div id="recurrenceInfo" class="info-text">
+                    * Bu ders önümüzdeki 16 hafta boyunca takvime işlenecek.
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" id="deleteBtn" class="danger-btn hidden">Sil</button>
+                    <button type="submit" id="saveBtn" class="primary-btn">Kaydet</button>
+                </div>
             </form>
         </div>
     </div>
+
+    <!-- Quick Detail Popup (Dynamically created in JS or fixed here? JS is better for positioning) -->
 
     <script src="app.js"></script>
 </body>
