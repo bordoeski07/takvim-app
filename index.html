@@ -4,12 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Minimal Calendar</title>
+    <title>Takvim</title>
 
     <!-- PWA Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Calendar">
+    <meta name="apple-mobile-web-app-title" content="Takvim">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
 
@@ -37,9 +37,9 @@
             </div>
 
             <div class="header-right">
-                <button id="importBtn" class="nav-btn" title="Ders Programı Ekle">+</button>
-                <button id="clearDataBtn" class="nav-btn" title="Tüm Verileri Temizle"
-                    style="color: #ef4444; border-color: #ef4444;">&times;</button>
+                <button id="addEventBtn" class="nav-btn primary" title="Yeni Ekle">+</button>
+                <button id="clearDataBtn" class="nav-btn danger" title="Sistemi Sıfırla">&times;</button>
+                <div class="nav-sep"></div>
                 <button id="prevBtn" class="nav-btn">&lt;</button>
                 <button id="todayBtn" class="nav-btn">Bugün</button>
                 <button id="nextBtn" class="nav-btn">&gt;</button>
@@ -65,51 +65,73 @@
             </div>
 
             <!-- Month Grid (Hidden by default) -->
-            <div id="monthGrid" class="calendar-grid hidden">
+            <div id="monthGrid" class="calendar-grid month-view hidden">
                 <!-- Days injected via JS -->
             </div>
         </div>
     </div>
 
-    <!-- Event Modal -->
+    <!-- Manual Add Event Modal -->
     <div id="eventModal" class="modal hidden">
         <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2 id="modalDate">Etkinlik Ekle</h2>
-
-            <input type="text" id="eventTitle" placeholder="Etkinlik Adı" autofocus>
-            <div class="time-inputs">
-                <input type="time" id="eventStartTime" value="09:00">
-                <span>-</span>
-                <input type="time" id="eventEndTime" value="10:00">
+            <div class="modal-header">
+                <h2>Yeni Etkinlik</h2>
+                <span class="close-btn">&times;</span>
             </div>
 
-            <div class="category-select">
-                <label><input type="radio" name="category" value="koc" checked> <span class="dot koc"></span>
-                    Koç</label>
-                <label><input type="radio" name="category" value="stock"> <span class="dot stock"></span> Borsa</label>
-                <label><input type="radio" name="category" value="content"> <span class="dot content"></span>
-                    İçerik</label>
-                <label><input type="radio" name="category" value="personal"> <span class="dot personal"></span>
-                    Kişisel</label>
-            </div>
+            <form id="eventForm">
+                <div class="form-group">
+                    <label>Ders / Etkinlik Adı</label>
+                    <input type="text" id="evtTitle" placeholder="Örn: MATH 203" required>
+                </div>
 
-            <button id="saveEventBtn">Kaydet</button>
-            <div id="deleteEventContainer" style="margin-top: 10px; display: none;">
-                <button id="deleteEventBtn" style="background: #ef4444; width: 100%;">Sil</button>
-            </div>
-        </div>
-    </div>
+                <div class="form-group">
+                    <label>Sınıf / Konum</label>
+                    <input type="text" id="evtLocation" placeholder="Örn: SOSB10">
+                </div>
 
-    <!-- Import Modal -->
-    <div id="importModal" class="modal hidden">
-        <div class="modal-content">
-            <span class="close-import-btn close-btn">&times;</span>
-            <h2>Ders Programı Aktar</h2>
-            <p style="font-size: 0.9rem; color: #aaa; margin-bottom: 15px;">Koç Hub'dan kopyaladığınız ders programı
-                metnini aşağıya yapıştırın.</p>
-            <textarea id="importText" rows="10" placeholder="Örn: COMP101 Pazartesi 10:00 - 11:30..."></textarea>
-            <button id="processImportBtn" style="margin-top: 15px;">Aktar ve Kaydet</button>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Gün</label>
+                        <select id="evtDay">
+                            <option value="1">Pazartesi</option>
+                            <option value="2">Salı</option>
+                            <option value="3">Çarşamba</option>
+                            <option value="4">Perşembe</option>
+                            <option value="5">Cuma</option>
+                            <option value="6">Cumartesi</option>
+                            <option value="0">Pazar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Başlangıç</label>
+                        <input type="time" id="evtStart" value="09:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Bitiş</label>
+                        <input type="time" id="evtEnd" value="10:30" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Kategori</label>
+                    <div class="category-options">
+                        <label class="cat-opt"><input type="radio" name="evtCat" value="koc" checked> <span
+                                class="dot koc"></span> Ders</label>
+                        <label class="cat-opt"><input type="radio" name="evtCat" value="stock"> <span
+                                class="dot stock"></span> Borsa</label>
+                        <label class="cat-opt"><input type="radio" name="evtCat" value="personal"> <span
+                                class="dot personal"></span> Kişisel</label>
+                        <label class="cat-opt"><input type="radio" name="evtCat" value="content"> <span
+                                class="dot content"></span> İçerik</label>
+                    </div>
+                </div>
+
+                <button type="submit" id="saveBtn" class="primary-btn">Kaydet</button>
+            </form>
         </div>
     </div>
 

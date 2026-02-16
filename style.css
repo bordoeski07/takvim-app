@@ -35,13 +35,11 @@ body {
     justify-content: center;
     min-height: 100vh;
     overflow: hidden;
-    /* Prevent body scroll, handle in containers */
 }
 
 .app-container {
     width: 100%;
     max-width: 100%;
-    /* Full width for PWA */
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -50,7 +48,7 @@ body {
 /* Header */
 header {
     height: var(--header-height);
-    padding: 0 20px;
+    padding: 0 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -60,9 +58,9 @@ header {
 }
 
 h1 {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    min-width: 150px;
+    min-width: 120px;
 }
 
 .view-switcher {
@@ -76,16 +74,20 @@ h1 {
     background: transparent;
     border: none;
     color: #888;
-    padding: 6px 12px;
+    padding: 6px 10px;
     cursor: pointer;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
 }
 
 .view-btn.active {
     background: #333;
     color: white;
+}
+
+.nav-sep {
+    width: 10px;
 }
 
 .nav-btn {
@@ -97,6 +99,23 @@ h1 {
     cursor: pointer;
     font-size: 0.9rem;
     margin-left: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-btn.primary {
+    background: var(--color-koc);
+    border-color: var(--color-koc);
+    color: white;
+    font-weight: 600;
+}
+
+.nav-btn.danger {
+    color: #ef4444;
+    border-color: #ef444433;
+    font-size: 1.2rem;
+    line-height: 0.8;
 }
 
 /* Weekdays Header */
@@ -108,9 +127,13 @@ h1 {
     background: var(--bg-color);
     border-bottom: 1px solid var(--border-color);
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #aaa;
     flex-shrink: 0;
+}
+
+.weekdays div[data-is-today="true"] {
+    color: var(--color-koc);
 }
 
 .weekdays div:first-child {
@@ -121,7 +144,6 @@ h1 {
 .views-container {
     flex: 1;
     overflow: hidden;
-    /* Manage scroll internally */
     position: relative;
 }
 
@@ -140,8 +162,8 @@ h1 {
     border-right: 1px solid var(--border-color);
     background: var(--bg-color);
     position: sticky;
-    /* Sticky time labels */
     left: 0;
+    z-index: 20;
 }
 
 .time-slot {
@@ -173,17 +195,22 @@ h1 {
 /* Event Blocks */
 .event-block {
     position: absolute;
-    left: 2px;
-    right: 2px;
-    /* Margin from lines */
     border-radius: 4px;
     padding: 4px;
     font-size: 0.75rem;
     overflow: hidden;
     color: white;
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    /* Can click to edit later? */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
     z-index: 10;
+    transition: transform 0.1s;
+    border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.event-block:hover {
+    z-index: 50;
+    transform: scale(1.02);
 }
 
 .event-title {
@@ -194,10 +221,39 @@ h1 {
     text-overflow: ellipsis;
 }
 
-.event-code {
+.event-loc {
     font-size: 0.75em;
-    opacity: 0.7;
+    opacity: 0.8;
     display: block;
+    font-style: italic;
+    margin-top: 1px;
+}
+
+/* Delete Button on Event */
+.event-delete {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.event-block:hover .event-delete {
+    opacity: 1;
+}
+
+.event-delete:hover {
+    background: #ef4444;
 }
 
 .event-block.koc {
@@ -221,12 +277,9 @@ h1 {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     grid-template-rows: repeat(5, 1fr);
-    /* Fixed 5 rows for simplicity or auto */
     height: 100%;
     width: 100%;
     border-left: 1px solid var(--border-color);
-    overflow: hidden;
-    /* No scroll usually needed for month view if calc matches */
 }
 
 .calendar-grid.month-view .day {
@@ -237,7 +290,6 @@ h1 {
     display: flex;
     flex-direction: column;
     padding: 4px;
-    overflow: hidden;
 }
 
 .calendar-grid.month-view .day:hover {
@@ -248,7 +300,7 @@ h1 {
     font-size: 0.8rem;
     color: #888;
     margin-bottom: 2px;
-    text-align: right;
+    align-self: flex-end;
 }
 
 .month-label {
@@ -272,9 +324,153 @@ h1 {
     background-color: var(--color-content);
 }
 
+.month-label.personal {
+    background-color: var(--color-personal);
+}
+
+/* Form Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    color: white;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-header h2 {
+    font-size: 1.2rem;
+}
+
+.close-btn {
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #888;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-bottom: 5px;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 10px;
+    background: #2a2a2a;
+    border: 1px solid var(--border-color);
+    color: white;
+    border-radius: 6px;
+    font-size: 0.95rem;
+}
+
+input:focus,
+select:focus {
+    border-color: var(--color-koc);
+    outline: none;
+}
+
+.category-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.cat-opt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    background: #2a2a2a;
+    padding: 6px 10px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+}
+
+.cat-opt:has(input:checked) {
+    border-color: white;
+    background: #333;
+}
+
+.cat-opt input {
+    display: none;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.dot.koc {
+    background: var(--color-koc);
+}
+
+.dot.stock {
+    background: var(--color-stock);
+}
+
+.dot.content {
+    background: var(--color-content);
+}
+
+.dot.personal {
+    background: var(--color-personal);
+}
+
+.primary-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--color-koc);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-top: 10px;
+}
+
 /* Current Time Line */
 .current-time-line {
     position: absolute;
+    line-height: 0;
     left: 0;
     width: 100%;
     height: 2px;
@@ -294,79 +490,13 @@ h1 {
     border-radius: 50%;
 }
 
-/* Modals & Utils */
 .hidden {
     display: none !important;
 }
 
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: var(--card-bg);
-    padding: 24px;
-    border-radius: 12px;
-    width: 90%;
-    max-width: 450px;
-    color: white;
-}
-
-.time-inputs {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-input,
-textarea {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    background: #2a2a2a;
-    border: 1px solid var(--border-color);
-    color: white;
-    border-radius: 6px;
-}
-
-button {
-    padding: 10px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-}
-
-#saveEventBtn,
-#processImportBtn {
-    background: var(--color-koc);
-    color: white;
-    width: 100%;
-}
-
-#clearDataBtn:hover {
-    background: rgba(239, 68, 68, 0.2);
-}
-
 @media (max-width: 768px) {
-    .weekdays {
-        font-size: 0.7rem;
-    }
-
-    .event-block {
-        font-size: 0.65rem;
-        padding: 2px;
-    }
-
     h1 {
         font-size: 1rem;
+        min-width: auto;
     }
 }

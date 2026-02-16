@@ -5,48 +5,47 @@ let events = JSON.parse(localStorage.getItem('calendarEvents')) || {};
 
 // Constants
 const START_HOUR = 8;
-const END_HOUR = 21; // 8am to 9pm (14 hours)
-const ROW_HEIGHT = 60; // px
+const END_HOUR = 23;
+const ROW_HEIGHT = 60;
 
-// DOM logic
+// DOM Elements
 const dom = {
     monthYear: document.getElementById('monthYear'),
     weekdays: document.getElementById('weekdaysHeader'),
     timeGrid: document.getElementById('timeGrid'),
     weekGrid: document.getElementById('weekGrid'),
     monthGrid: document.getElementById('monthGrid'),
-    currentTimeAction: document.getElementById('currentTimeLine'),
+    currentTimeLine: document.getElementById('currentTimeLine'),
 
     // Modals
-    importModal: document.getElementById('importModal'),
     eventModal: document.getElementById('eventModal'),
-    importText: document.getElementById('importText'),
+    eventForm: document.getElementById('eventForm'),
 
     // Inputs
-    evtTitle: document.getElementById('eventTitle'),
-    evtStart: document.getElementById('eventStartTime'),
-    evtEnd: document.getElementById('eventEndTime')
+    title: document.getElementById('evtTitle'),
+    location: document.getElementById('evtLocation'),
+    day: document.getElementById('evtDay'),
+    start: document.getElementById('evtStart'),
+    end: document.getElementById('evtEnd')
 };
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-    // Buttons
+    // Navigation
     document.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', e => switchView(e.target.dataset.view)));
     document.getElementById('prevBtn').addEventListener('click', () => navigate(-1));
     document.getElementById('nextBtn').addEventListener('click', () => navigate(1));
     document.getElementById('todayBtn').addEventListener('click', () => { currentDate = new Date(); render(); });
 
-    document.getElementById('importBtn').addEventListener('click', () => dom.importModal.classList.remove('hidden'));
-    document.querySelector('.close-import-btn').addEventListener('click', () => dom.importModal.classList.add('hidden'));
+    // Actions
+    document.getElementById('addEventBtn').addEventListener('click', openAddModal);
+    document.getElementById('clearDataBtn').addEventListener('click', factoryReset);
+
+    // Form
+    dom.eventForm.addEventListener('submit', handleFormSubmit);
     document.querySelector('.close-btn').addEventListener('click', () => dom.eventModal.classList.add('hidden'));
 
-    document.getElementById('processImportBtn').addEventListener('click', runLinearParser);
-    document.getElementById('saveEventBtn').addEventListener('click', saveEvent);
-
-    // Factory Reset
-    const resetBtn = document.getElementById('clearDataBtn');
-    if (resetBtn) resetBtn.addEventListener('click', factoryReset);
-
+    // Setup
     setupTimeAxis();
     render();
 
@@ -58,80 +57,84 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Logic ---
 
 function factoryReset() {
-    if (confirm("FABRİKA AYARLARI: Tüm veriler silinecek ve uygulama yenilenecek. Onaylıyor musunuz?")) {
+    if (confirm("DİKKAT: Tüm veriler silinecek! Onaylıyor musunuz?")) {
         localStorage.clear();
         location.reload();
     }
 }
 
-// Linear Grid Parser
-function runLinearParser() {
-    const text = dom.importText.value;
-    if (!text) return;
+function openAddModal() {
+    dom.eventForm.reset();
+    document.getElementById('evtStart').value = "09:00";
+    document.getElementById('evtEnd').value = "10:30";
+    dom.eventModal.classList.remove('hidden');
+}
 
-    const lines = text.split('\n').map(l => l.trim());
+function handleFormSubmit(e) {
+    e.preventDefault();
 
-    // Logic: 
-    // Skip 21 lines of headers (7 Days + 14 Hours)
-    // Then mapped Column by Column: Mon(8-21), Tue(8-21)...
+    const title = dom.title.value;
+    const loc = dom.location.value;
+    const dayIdx = parseInt(dom.day.value); // 0=Sun, 1=Mon...
+    const start = dom.start.value;
+    const end = dom.end.value;
+    const cat = document.querySelector('input[name="evtCat"]:checked').value;
 
-    // Headers skip
-    // NOTE: User said "Monday...Sunday" (7 lines) + "8am...9pm" (14 lines) = 21 lines.
+    // Calculate Date based on Current Week View
+    // We want the event to appear in the CURRENT week being viewed.
+    // getStartOfWeek returns Monday of current view
+    const weekStart = getStartOfWeek(currentDate);
+    // If dayIdx is 0 (Sunday), in JS Date, Sunday is start of week usually, but we treat Mon as start.
+    // Our getStartOfWeek returns Monday. 
+    // If user picks Sunday (0), that is Monday + 6 days.
+    // If user picks Tuesday (2), that is Monday + 1 day.
 
-    let dataLines = lines;
-    if (lines.length > 21) {
-        // Simple heuristic: if input looks raw, assume first 21 lines are headers
-        dataLines = lines.slice(21);
+    // Adjust dayIdx to 0-6 Monday based logic
+    // Input values: 1(Mon), 2(Tue), ..., 6(Sat), 0(Sun)
+    // Map to offset from Monday: Mon=0, Tue=1... Sun=6
+    const offset = dayIdx === 0 ? 6 : dayIdx - 1;
+
+    const targetDate = new Date(weekStart);
+    targetDate.setDate(weekStart.getDate() + offset);
+
+    // Add Event for this specific date (+ next 4 weeks like before? No, manual should be specific or maybe recurring later. Let's do single instance for manual "New Event" focus, or keep the 4-week logic if user wants schedule. User said "Week View", usually implies recurring. Let's do 1 instance for "Manual Add" as it's cleaner, or maybe 4 weeks to mimic semester. Let's stick to 1 instance for safety, easy to add more).
+    // Actually, user context is "Course Schedule", so let's add for 4 weeks to be helpful.
+
+    let added = 0;
+    for (let i = 0; i < 4; i++) {
+        const d = new Date(targetDate);
+        d.setDate(targetDate.getDate() + (i * 7));
+        const key = getDateKey(d);
+
+        if (!events[key]) events[key] = [];
+        events[key].push({
+            id: Date.now() + Math.random(),
+            title: title,
+            location: loc,
+            startTime: start,
+            endTime: end,
+            category: cat
+        });
+        added++;
     }
 
-    let addedCount = 0;
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    dom.eventModal.classList.add('hidden');
+    render();
+}
 
-    // Iterate Days (0=Mon, ... 6=Sun)
-    for (let dIndex = 0; dIndex < 7; dIndex++) {
-        // Iterate Hours (8..21) -> 14 slots
-        for (let hIndex = START_HOUR; hIndex <= END_HOUR; hIndex++) {
-            if (dataLines.length === 0) break;
-
-            const content = dataLines.shift(); // Take next line
-
-            if (content && content.length > 0) {
-                // Create Event
-                // Determine Date for this dIndex (relative to current week or next week)
-                const dateRef = getStartOfWeek(new Date());
-                dateRef.setDate(dateRef.getDate() + dIndex); // 0=Mon
-
-                // Add for 4 weeks ahead
-                for (let w = 0; w < 4; w++) {
-                    const evtDate = new Date(dateRef);
-                    evtDate.setDate(dateRef.getDate() + (w * 7));
-                    const key = getDateKey(evtDate);
-
-                    if (!events[key]) events[key] = [];
-
-                    events[key].push({
-                        id: Date.now() + Math.random(),
-                        title: content,
-                        startTime: `${hIndex.toString().padStart(2, '0')}:00`,
-                        endTime: `${(hIndex + 1).toString().padStart(2, '0')}:00`,
-                        category: 'koc'
-                    });
-                    addedCount++;
-                }
-            }
-        }
-    }
-
-    if (addedCount > 0) {
+function deleteEvent(dateKey, evtId) {
+    if (!events[dateKey]) return;
+    if (confirm("Bu dersi silmek istiyor musunuz?")) {
+        events[dateKey] = events[dateKey].filter(e => e.id !== evtId);
+        if (events[dateKey].length === 0) delete events[dateKey];
         localStorage.setItem('calendarEvents', JSON.stringify(events));
-        dom.importModal.classList.add('hidden');
         render();
-        alert(`${addedCount} ders eklendi (Doğrusal Algoritma).`);
-    } else {
-        alert("Ders eklenemedi. Veri formatı boş olabilir.");
     }
 }
 
 // --- View ---
+
 function switchView(v) {
     currentView = v;
     document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
@@ -144,7 +147,6 @@ function switchView(v) {
         dom.timeGrid.classList.remove('hidden');
         dom.monthGrid.classList.add('hidden');
 
-        // Grid cols
         if (v === 'day') {
             dom.weekdays.style.gridTemplateColumns = '50px 1fr';
             dom.weekGrid.style.gridTemplateColumns = '1fr';
@@ -164,11 +166,12 @@ function navigate(dir) {
 }
 
 // --- Render ---
+
 function render() {
     dom.monthYear.textContent = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(currentDate);
 
-    // Weekdays Header
-    dom.weekdays.innerHTML = '<div></div>'; // Spacer
+    // Headers
+    dom.weekdays.innerHTML = '<div></div>';
     const startWeek = getStartOfWeek(currentDate);
     const count = currentView === 'day' ? 1 : 7;
     const start = currentView === 'day' ? currentDate : startWeek;
@@ -177,8 +180,12 @@ function render() {
         const d = new Date(start);
         if (currentView === 'week') d.setDate(d.getDate() + i);
 
+        const isToday = getDateKey(d) === getDateKey(new Date());
+
         const div = document.createElement('div');
-        div.innerHTML = `${d.toLocaleDateString('tr-TR', { weekday: 'short' })}<br><b>${d.getDate()}</b>`;
+        div.dataset.isToday = isToday;
+        // e.g. Pzt 16
+        div.innerHTML = `${d.toLocaleDateString('tr-TR', { weekday: 'short' })}<br><span style="font-size:1.1em">${d.getDate()}</span>`;
         dom.weekdays.appendChild(div);
     }
 
@@ -188,7 +195,7 @@ function render() {
 
 function renderWeek(startDate, dayCount) {
     dom.weekGrid.innerHTML = '';
-    dom.weekGrid.appendChild(dom.currentTimeAction); // Persist line
+    dom.weekGrid.appendChild(dom.currentTimeLine);
 
     for (let i = 0; i < dayCount; i++) {
         const d = new Date(startDate);
@@ -198,46 +205,76 @@ function renderWeek(startDate, dayCount) {
         const col = document.createElement('div');
         col.className = 'day-column';
 
-        (events[key] || []).forEach(evt => {
-            const el = createEventEl(evt);
-            col.appendChild(el);
-        });
+        const dayEvents = events[key] || [];
+        renderEventsInColumn(col, dayEvents, key);
 
         dom.weekGrid.appendChild(col);
     }
 }
 
-function createEventEl(evt) {
-    const div = document.createElement('div');
-    div.className = `event-block ${evt.category}`;
+function renderEventsInColumn(container, dayEvents, dateKey) {
+    if (!dayEvents.length) return;
 
-    const [sh, sm] = evt.startTime.split(':').map(Number);
-    const [eh, em] = evt.endTime.split(':').map(Number);
+    // 1. Calculate Positions
+    const items = dayEvents.map(evt => {
+        const [sh, sm] = evt.startTime.split(':').map(Number);
+        const [eh, em] = evt.endTime.split(':').map(Number);
+        const top = ((sh + sm / 60) - START_HOUR) * ROW_HEIGHT;
+        const height = ((eh + em / 60) - (sh + sm / 60)) * ROW_HEIGHT;
+        return { ...evt, top, height, bottom: top + height };
+    });
 
-    const startVal = sh + sm / 60;
-    const endVal = eh + em / 60;
+    // Sort logic
+    items.sort((a, b) => a.top - b.top);
 
-    const top = (startVal - START_HOUR) * ROW_HEIGHT;
-    const height = (endVal - startVal) * ROW_HEIGHT;
+    // 2. Overlap Grouping (Smart Side-by-Side)
+    // Simple greedy packing approach
+    const columns = [];
 
-    div.style.top = `${top}px`;
-    div.style.height = `${height}px`;
-    // For now simple full width, improved overlap logic can be added if needed
-    // But user asked strictly for alignment first
-    div.style.width = '95%';
+    items.forEach(evt => {
+        // Find first column where this event fits
+        let placed = false;
+        for (let i = 0; i < columns.length; i++) {
+            const col = columns[i];
+            const lastEvt = col[col.length - 1];
+            if (lastEvt.bottom <= evt.top + 0.1) { // 0.1 tolerance
+                col.push(evt);
+                evt.colIndex = i;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            columns.push([evt]);
+            evt.colIndex = columns.length - 1;
+        }
+    });
 
-    // Title parsing
-    let title = evt.title;
-    let code = '';
-    // Look for code at start
-    const match = title.match(/^([A-Z]{2,4}\s?\d{3,4})(.*)/);
-    if (match) {
-        code = match[1];
-        title = match[2] || code;
-    }
+    const totalCols = columns.length;
 
-    div.innerHTML = `<span class="event-title">${title}</span>${code ? `<span class="event-code">${code}</span>` : ''}`;
-    return div;
+    // 3. Render
+    items.forEach(evt => {
+        const el = document.createElement('div');
+        el.className = `event-block ${evt.category}`;
+        el.style.top = `${evt.top}px`;
+        el.style.height = `${evt.height}px`;
+        el.style.left = `${(evt.colIndex / totalCols) * 100}%`;
+        el.style.width = `${(1 / totalCols) * 100}%`;
+
+        el.innerHTML = `
+            <span class="event-title">${evt.title}</span>
+            <span class="event-loc">${evt.location || ''}</span>
+            <div class="event-delete">✕</div>
+        `;
+
+        // Delete Action
+        el.querySelector('.event-delete').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteEvent(dateKey, evt.id);
+        });
+
+        container.appendChild(el);
+    });
 }
 
 function renderMonth() {
@@ -246,31 +283,22 @@ function renderMonth() {
     const m = currentDate.getMonth();
     const first = new Date(y, m, 1);
     const daysInM = new Date(y, m + 1, 0).getDate();
-    // Monday start correction: Mon=1..Sun=7 -> Mon=0..Sun=6
-    let startDay = (first.getDay() + 6) % 7;
+    const startDay = (first.getDay() + 6) % 7;
 
-    // Fill empty
     for (let i = 0; i < startDay; i++) dom.monthGrid.appendChild(makeDiv('day empty'));
 
     for (let i = 1; i <= daysInM; i++) {
         const cell = makeDiv('day');
         cell.innerHTML = `<div class="day-number">${i}</div>`;
-
         const key = `${y}-${String(m + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        const dayEvts = events[key] || [];
 
-        if (dayEvts.length > 0) {
-            // Show first 3
-            dayEvts.slice(0, 3).forEach(e => {
-                const badge = document.createElement('div');
-                badge.className = `month-label ${e.category}`;
-                // Label: Code or First Word
-                // Regex for code
-                const match = e.title.match(/[A-Z]{2,4}\s?\d{3,4}/);
-                badge.textContent = match ? match[0] : e.title;
-                cell.appendChild(badge);
-            });
-        }
+        (events[key] || []).slice(0, 4).forEach(e => {
+            const badge = document.createElement('div');
+            badge.className = `month-label ${e.category}`;
+            // Prioritize Location if exists (e.g. M203), else Title
+            badge.textContent = e.location ? e.location : e.title;
+            cell.appendChild(badge);
+        });
 
         cell.addEventListener('click', () => {
             currentDate = new Date(y, m, i);
@@ -295,11 +323,11 @@ function updateTimeIndicator() {
     const h = now.getHours();
     const m = now.getMinutes();
     if (h < START_HOUR || h > END_HOUR) {
-        dom.currentTimeAction.style.display = 'none';
+        dom.currentTimeLine.style.display = 'none';
         return;
     }
-    dom.currentTimeAction.style.display = 'block';
-    dom.currentTimeAction.style.top = `${((h - START_HOUR) + m / 60) * ROW_HEIGHT}px`;
+    dom.currentTimeLine.style.display = 'block';
+    dom.currentTimeLine.style.top = `${((h - START_HOUR) + m / 60) * ROW_HEIGHT}px`;
 }
 function getStartOfWeek(d) {
     const date = new Date(d);
@@ -309,10 +337,3 @@ function getStartOfWeek(d) {
 }
 function getDateKey(d) { return d.toISOString().split('T')[0]; }
 function makeDiv(c) { const d = document.createElement('div'); d.className = c; return d; }
-let selectedSlot = null;
-function saveEvent() {
-    // Simple mock event save if manual add is needed
-    // Assuming UI for this is kept but priority was parser
-    alert("Kayıt tamam (Stub)");
-    dom.eventModal.classList.add('hidden');
-}
