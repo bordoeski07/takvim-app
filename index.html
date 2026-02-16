@@ -65,28 +65,26 @@
         </div>
     </div>
 
-    <!-- Advanced Add Event Modal -->
+    <!-- Add/Edit Event Modal -->
     <div id="eventModal" class="modal hidden">
+        <div class="modal-overlay"></div> <!-- Click to close area -->
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modalTitle">Yeni Ekle</h2>
-                <span class="close-btn">&times;</span>
+                <div class="modal-header-actions">
+                    <button type="button" id="deleteBtnHeader" class="icon-btn danger hidden" title="Sil">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2">
+                            </path>
+                        </svg>
+                    </button>
+                    <span class="close-btn">&times;</span>
+                </div>
             </div>
 
             <form id="eventForm">
-                <input type="hidden" id="editEventId"> <!-- For Edit Mode -->
-
-                <!-- Type Toggle -->
-                <div class="type-toggle-container">
-                    <label class="type-opt">
-                        <input type="radio" name="eventType" value="course" checked>
-                        <span>Ders (Tekrarlı)</span>
-                    </label>
-                    <label class="type-opt">
-                        <input type="radio" name="eventType" value="single">
-                        <span>Etkinlik (Tek)</span>
-                    </label>
-                </div>
+                <input type="hidden" id="editEventId">
 
                 <div class="form-group">
                     <label>Başlık</label>
@@ -98,10 +96,45 @@
                     <input type="text" id="evtLocation" placeholder="Örn: SOSB10">
                 </div>
 
-                <!-- Dynamic Date Section -->
-                <div class="form-row" id="daySelectRow">
+                <div class="form-row">
                     <div class="form-group">
-                        <label>Gün (Her Hafta)</label>
+                        <label>Kategori</label>
+                        <div class="category-options">
+                            <label class="cat-opt koc">
+                                <input type="radio" name="evtCat" value="koc" checked>
+                                <span class="icon">📘</span> Ders
+                            </label>
+                            <label class="cat-opt stock">
+                                <input type="radio" name="evtCat" value="stock">
+                                <span class="icon">📈</span> Borsa
+                            </label>
+                            <label class="cat-opt personal">
+                                <input type="radio" name="evtCat" value="personal">
+                                <span class="icon">📅</span> Kişisel
+                            </label>
+                            <label class="cat-opt content">
+                                <input type="radio" name="evtCat" value="content">
+                                <span class="icon">🎥</span> İçerik
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tekrar</label>
+                        <select id="evtRepeat">
+                            <option value="none">Tek Seferlik</option>
+                            <option value="weekly">Her Hafta</option>
+                            <option value="weekdays">Hafta İçi Her Gün</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Dynamic Date Section -->
+                <div class="form-row hidden" id="daySelectRow">
+                    <div class="form-group">
+                        <label>Gün Seçimi</label>
                         <select id="evtDay">
                             <option value="1">Pazartesi</option>
                             <option value="2">Salı</option>
@@ -114,7 +147,7 @@
                     </div>
                 </div>
 
-                <div class="form-row hidden" id="dateSelectRow">
+                <div class="form-row" id="dateSelectRow">
                     <div class="form-group">
                         <label>Tarih</label>
                         <input type="date" id="evtDate">
@@ -132,42 +165,13 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Kategori</label>
-                    <div class="category-options">
-                        <label class="cat-opt koc">
-                            <input type="radio" name="evtCat" value="koc" checked>
-                            <span class="icon">📘</span> Ders
-                        </label>
-                        <label class="cat-opt stock">
-                            <input type="radio" name="evtCat" value="stock">
-                            <span class="icon">📈</span> Borsa
-                        </label>
-                        <label class="cat-opt personal">
-                            <input type="radio" name="evtCat" value="personal">
-                            <span class="icon">📅</span> Kişisel
-                        </label>
-                        <label class="cat-opt content">
-                            <input type="radio" name="evtCat" value="content">
-                            <span class="icon">🎥</span> İçerik
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Recurrence Info (Visual only for Course mode) -->
-                <div id="recurrenceInfo" class="info-text">
-                    * Bu ders önümüzdeki 16 hafta boyunca takvime işlenecek.
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" id="deleteBtn" class="danger-btn hidden">Sil</button>
+                <div class="modal-footer">
+                    <button type="button" id="cancelBtn" class="secondary-btn">İptal</button>
                     <button type="submit" id="saveBtn" class="primary-btn">Kaydet</button>
                 </div>
             </form>
         </div>
     </div>
-
-    <!-- Quick Detail Popup (Dynamically created in JS or fixed here? JS is better for positioning) -->
 
     <script src="app.js"></script>
 </body>

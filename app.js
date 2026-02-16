@@ -2,7 +2,7 @@
 let currentDate = new Date();
 let currentView = 'week';
 let events = JSON.parse(localStorage.getItem('calendarEvents')) || {};
-let editingEventId = null; // Track if we are editing
+let editingEventId = null;
 
 // Constants
 const START_HOUR = 8;
@@ -30,11 +30,12 @@ const dom = {
     eventModal: document.getElementById('eventModal'),
     eventForm: document.getElementById('eventForm'),
     modalTitle: document.getElementById('modalTitle'),
-    deleteBtn: document.getElementById('deleteBtn'),
-    saveBtn: document.getElementById('saveBtn'),
+    deleteBtnHeader: document.getElementById('deleteBtnHeader'),
+    cancelBtn: document.getElementById('cancelBtn'),
 
     // Form Inputs
-    typeRadios: document.getElementsByName('eventType'),
+    catRadios: document.getElementsByName('evtCat'),
+    repeatSelect: document.getElementById('evtRepeat'),
     title: document.getElementById('evtTitle'),
     location: document.getElementById('evtLocation'),
     day: document.getElementById('evtDay'),
@@ -44,8 +45,7 @@ const dom = {
 
     // Sections
     dayRow: document.getElementById('daySelectRow'),
-    dateRow: document.getElementById('dateSelectRow'),
-    recurrenceInfo: document.getElementById('recurrenceInfo')
+    dateRow: document.getElementById('dateSelectRow')
 };
 
 // Init
@@ -57,16 +57,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('todayBtn').addEventListener('click', () => { currentDate = new Date(); render(); });
 
     // Actions
-    document.getElementById('addEventBtn').addEventListener('click', () => openModal()); // New Mode
+    document.getElementById('addEventBtn').addEventListener('click', () => openModal());
     document.getElementById('clearDataBtn').addEventListener('click', factoryReset);
-    dom.deleteBtn.addEventListener('click', handleDelete);
+    dom.deleteBtnHeader.addEventListener('click', handleDelete);
+    dom.cancelBtn.addEventListener('click', closeModal);
 
     // Form
     dom.eventForm.addEventListener('submit', handleFormSubmit);
-    document.querySelector('.close-btn').addEventListener('click', () => dom.eventModal.classList.add('hidden'));
+    document.querySelector('.close-btn').addEventListener('click', closeModal);
+    document.querySelector('.modal-overlay').addEventListener('click', closeModal);
 
-    // Type Toggle Logic
-    dom.typeRadios.forEach(r => r.addEventListener('change', toggleFormFields));
+    // Change Listeners
+    dom.repeatSelect.addEventListener('change', updateFormFields);
+    dom.catRadios.forEach(r => r.addEventListener('change', handleCategoryChange));
 
     // Setup
     setupTimeAxis();
@@ -84,71 +87,78 @@ function factoryReset() {
     }
 }
 
-function toggleFormFields() {
-    const type = document.querySelector('input[name="eventType"]:checked').value;
-    if (type === 'course') {
+function handleCategoryChange() {
+    const cat = document.querySelector('input[name="evtCat"]:checked').value;
+    // Default logic based on Category
+    if (cat === 'koc') {
+        dom.repeatSelect.value = 'weekly';
+    } else {
+        dom.repeatSelect.value = 'none';
+        // 'weekdays' for 'stock' maybe? User didn't specify, sticking to 'none' as safe default
+    }
+    updateFormFields();
+}
+
+function updateFormFields() {
+    const repeat = dom.repeatSelect.value;
+
+    if (repeat === 'weekly') {
         dom.dayRow.classList.remove('hidden');
         dom.dateRow.classList.add('hidden');
-        dom.recurrenceInfo.classList.remove('hidden');
     } else {
+        // For 'none' and 'weekdays', we use Date Picker (Specific Date or Start Date)
         dom.dayRow.classList.add('hidden');
         dom.dateRow.classList.remove('hidden');
-        dom.recurrenceInfo.classList.add('hidden');
     }
 }
 
 function openModal(evtToEdit = null) {
     dom.eventForm.reset();
-    dom.deleteBtn.classList.add('hidden');
+    document.body.classList.add('modal-open'); // Scroll lock
+    dom.deleteBtnHeader.classList.add('hidden');
     editingEventId = null;
 
     // Defaults
     dom.modalTitle.textContent = "Yeni Ekle";
     document.getElementById('evtStart').value = "09:00";
     document.getElementById('evtEnd').value = "10:30";
-    // Set today's date for single event
     dom.date.valueAsDate = new Date();
 
-    // Default Type: Course
-    document.querySelector('input[name="eventType"][value="course"]').checked = true;
-    toggleFormFields();
+    // Default Cat: Koc -> this triggers handleCategoryChange -> sets Weekly
+    document.querySelector('input[name="evtCat"][value="koc"]').checked = true;
+    handleCategoryChange(); // Apply default state
 
     // If Editing
     if (evtToEdit) {
         editingEventId = evtToEdit.id;
         dom.modalTitle.textContent = "Düzenle";
-        dom.deleteBtn.classList.remove('hidden');
+        dom.deleteBtnHeader.classList.remove('hidden');
 
         dom.title.value = evtToEdit.title;
         dom.location.value = evtToEdit.location || '';
         dom.start.value = evtToEdit.startTime;
         dom.end.value = evtToEdit.endTime;
 
-        // Category
         const catRadio = document.querySelector(`input[name="evtCat"][value="${evtToEdit.category}"]`);
         if (catRadio) catRadio.checked = true;
 
-        // Determine Type based on context (Hard to know strict type from just stored event, but we can infer or force 'single' for safe editing)
-        // For simplicity: Edit Mode always shows Date Picker for explicit date change, masking as "Single" edit.
-        document.querySelector('input[name="eventType"][value="single"]').checked = true;
-        toggleFormFields();
-
-        // Find existing date
-        // Reverse engineering date from ID or Key is needed? 
-        // We passed the obj, but we need the DATE KEY it belongs to.
-        // Let's pass dateStr in openModal if possible, or store date in event obj.
-        // NOTE: Our data structure: { '2024-01-01': [events] }
-        // We need to know which date we are editing.
-        // We will pass `dateStr` to openModal.
+        // When editing a specific instance, we force "None" (Single) mode to allow specific Date/Time edit
+        // User can change it back to 'weekly' if they want to create a new series
+        dom.repeatSelect.value = 'none';
+        updateFormFields();
     }
 
     dom.eventModal.classList.remove('hidden');
 }
 
-// Overload openModal to accept context
 function openEditModal(evt, dateKey) {
     openModal(evt);
-    dom.date.value = dateKey; // Set the date picker to the event's date
+    dom.date.value = dateKey;
+}
+
+function closeModal() {
+    dom.eventModal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
 }
 
 function handleFormSubmit(e) {
@@ -159,39 +169,55 @@ function handleFormSubmit(e) {
     const start = dom.start.value;
     const end = dom.end.value;
     const cat = document.querySelector('input[name="evtCat"]:checked').value;
-    const type = document.querySelector('input[name="eventType"]:checked').value;
+    const repeat = dom.repeatSelect.value;
 
     // Delete previous if editing
-    if (editingEventId) {
-        // We only delete the SPECIFIC instance being edited (Single instance edit)
-        // Finding and deleting...
-        const oldDateVal = dom.date.value; // Valid because we switch to Single mode on edit
-        deleteEventById(editingEventId);
-    }
+    if (editingEventId) deleteEventById(editingEventId);
 
-    // CREATE NEW
-    if (type === 'course') {
-        // Recurring Logic (16 Weeks)
-        const dayIdx = parseInt(dom.day.value); // 0=Sun, 1=Mon...
+    // Logic
+    if (repeat === 'weekly') {
+        // Weekly -> Use Day Selector
+        const dayIdx = parseInt(dom.day.value); // 0=Sun
         const weekStart = getStartOfWeek(currentDate);
         const offset = dayIdx === 0 ? 6 : dayIdx - 1;
         const targetDate = new Date(weekStart);
         targetDate.setDate(weekStart.getDate() + offset);
 
-        for (let i = 0; i < 16; i++) { // 16 Weeks Semester
+        // Generate for 16 weeks (Semester)
+        for (let i = 0; i < 16; i++) {
             const d = new Date(targetDate);
             d.setDate(targetDate.getDate() + (i * 7));
             saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
         }
-    } else {
-        // Single Event
+    } else if (repeat === 'weekdays') {
+        // Weekdays -> Use Date Picker as Start Date
         const dateVal = dom.date.value;
-        if (!dateVal) return alert("Lütfen tarih seçin.");
+        if (!dateVal) return alert("Başlangıç tarihi seçin.");
+
+        const startDate = new Date(dateVal);
+        // Generate for 16 weeks? Or user selected range? Let's do 4 weeks for now to avoid spam
+        // Or better: Just for this week and next 3. 
+        // User expectation: "Mon-Fri".
+
+        // Let's generate for 4 weeks (20 days) starting from Start Date
+        // Skip Sat/Sun
+        for (let i = 0; i < 28; i++) { // 4 weeks range
+            const d = new Date(startDate);
+            d.setDate(startDate.getDate() + i);
+            const day = d.getDay();
+            if (day !== 0 && day !== 6) { // Skip Sun(0) and Sat(6)
+                saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
+            }
+        }
+    } else {
+        // None -> Single
+        const dateVal = dom.date.value;
+        if (!dateVal) return alert("Tarih seçin.");
         const d = new Date(dateVal);
         saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
     }
 
-    dom.eventModal.classList.add('hidden');
+    closeModal();
     render();
 }
 
@@ -208,21 +234,19 @@ function saveEventToDate(dateObj, data) {
 function handleDelete() {
     if (editingEventId && confirm("Silmek istediğinize emin misiniz?")) {
         deleteEventById(editingEventId);
-        dom.eventModal.classList.add('hidden');
+        closeModal();
         render();
     }
 }
 
 function deleteEventById(id) {
-    // Search everywhere (inefficient but safe) or we need dateKey.
-    // Ideally we pass dateKey. For now, iterate all.
     for (const key in events) {
         const initialLen = events[key].length;
         events[key] = events[key].filter(e => e.id !== id);
         if (events[key].length !== initialLen && events[key].length === 0) {
             delete events[key];
         }
-        if (events[key].length !== initialLen) break; // Found and deleted
+        if (events[key].length !== initialLen) break;
     }
     localStorage.setItem('calendarEvents', JSON.stringify(events));
 }
@@ -275,7 +299,6 @@ function render() {
 
         const div = document.createElement('div');
         div.dataset.isToday = isToday;
-        // e.g. Pzt 16
         div.innerHTML = `${d.toLocaleDateString('tr-TR', { weekday: 'short' })}<br><span style="font-size:1.1em">${d.getDate()}</span>`;
         dom.weekdays.appendChild(div);
     }
@@ -299,18 +322,15 @@ function renderWeek(startDate, dayCount) {
         const dayEvents = events[key] || [];
         renderEventsInColumn(col, dayEvents, key);
 
-        // Click on column to quick add
         col.addEventListener('dblclick', (e) => {
             if (e.target !== col) return;
-            const rect = col.getBoundingClientRect();
-            const y = e.clientY - rect.top; // Relative to viewport actually? weekGrid scroll?
-            // Need relative to col top.
-            // Simplified: Just Open Modal defaulted to this day.
-            dom.date.value = key;
-            document.querySelector('input[name="eventType"][value="single"]').checked = true;
-            toggleFormFields();
             openModal();
-            dom.date.value = key; // Re-set after reset
+            dom.date.value = key;
+            // Also set defaults based on category (Koc=Weekly), but if double click maybe assume Single by default?
+            // Actually `openModal` resets to Koc/Weekly. 
+            // Let's force None/Single for quick add via dblclick to a specific day.
+            dom.repeatSelect.value = 'none';
+            updateFormFields();
         });
 
         dom.weekGrid.appendChild(col);
