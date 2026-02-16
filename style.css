@@ -9,7 +9,7 @@
     /* Sapphire Blue */
     --color-stock: #50c878;
     /* Emerald Green */
-    --color-content: #ff9f1c;
+    --color-special: #ff9f1c;
     /* Bright Orange */
     --color-personal: #4a5568;
     /* Slate Gray */
@@ -22,6 +22,7 @@
 
     /* Safe Area for Mobile */
     --safe-area-bottom: env(safe-area-inset-bottom, 20px);
+    --safe-area-top: env(safe-area-inset-top, 20px);
 }
 
 * {
@@ -57,6 +58,8 @@ body.modal-open {
 header {
     height: var(--header-height);
     padding: 0 15px;
+    padding-top: max(0px, var(--safe-area-top));
+    /* Handle notch? usually handled by viewport-fit=cover but adding just in case */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -209,6 +212,8 @@ h1 {
     border-left: 3px solid rgba(255, 255, 255, 0.3);
     display: flex;
     flex-direction: column;
+    /* Disable user select to prevent text interaction on long press/scroll */
+    user-select: none;
 }
 
 .event-block:hover {
@@ -222,6 +227,8 @@ h1 {
     align-items: center;
     gap: 4px;
     margin-bottom: 1px;
+    padding-right: 18px;
+    /* Space for Trash icon */
 }
 
 .event-icon {
@@ -234,6 +241,7 @@ h1 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
 }
 
 .event-loc {
@@ -243,6 +251,32 @@ h1 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Trash Icon in Event Block */
+.event-trash {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 0.6;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.event-trash:hover {
+    background: rgba(239, 68, 68, 0.8);
+    opacity: 1;
+}
+
+.event-trash svg {
+    width: 12px;
+    height: 12px;
 }
 
 /* Category Colors */
@@ -256,14 +290,14 @@ h1 {
     border-color: #85e8a3;
 }
 
-.event-block.content {
-    background-color: var(--color-content);
+.event-block.special {
+    background-color: var(--color-special);
     border-color: #ffcd69;
     color: #1a1a1a;
 }
 
-.event-block.content .event-loc {
-    opacity: 0.9;
+.event-block.special .event-trash {
+    color: #1a1a1a;
 }
 
 .event-block.personal {
@@ -327,8 +361,8 @@ h1 {
     color: white;
 }
 
-.month-label.content {
-    background-color: var(--color-content);
+.month-label.special {
+    background-color: var(--color-special);
     color: black;
 }
 
@@ -347,7 +381,6 @@ h1 {
     align-items: center;
     z-index: 1000;
     overflow-y: auto;
-    /* Allow scroll if needed */
     padding: 20px;
 }
 
@@ -360,11 +393,15 @@ h1 {
     color: white;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     margin: auto;
-    /* Center in flex */
     position: relative;
+    max-height: 90vh;
+    /* Prevent modal being taller than screen */
+    overflow-y: auto;
+    /* Scroll inside modal if needed */
+    display: flex;
+    flex-direction: column;
 }
 
-/* Modal Overlay for click-outside */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -376,6 +413,7 @@ h1 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -397,8 +435,17 @@ h1 {
     padding: 5px;
 }
 
+form {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Make form flex to push footer down if needed */
+
 .form-group {
     margin-bottom: 15px;
+    flex-shrink: 0;
 }
 
 .form-group label {
@@ -411,6 +458,7 @@ h1 {
 .form-row {
     display: flex;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .form-row .form-group {
@@ -423,7 +471,6 @@ select {
     width: 100%;
     padding: 0 12px;
     height: 48px;
-    /* Min touch height */
     background: #2a2a2a;
     border: 1px solid #333;
     color: white;
@@ -481,7 +528,7 @@ select:focus {
     color: #85e8a3;
 }
 
-.cat-opt.content {
+.cat-opt.special {
     color: #ffcd69;
 }
 
@@ -498,8 +545,9 @@ select:focus {
     display: flex;
     gap: 10px;
     margin-top: 25px;
+    /* Push to bottom of safe area */
     padding-bottom: var(--safe-area-bottom);
-    /* Safe area logic */
+    flex-shrink: 0;
 }
 
 .primary-btn {
@@ -527,9 +575,12 @@ select:focus {
 
 .icon-btn {
     background: transparent;
-    border: none;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
     color: #ef4444;
-    padding: 8px;
+    padding: 0;
+    height: 32px;
+    width: 32px;
     cursor: pointer;
     display: flex;
     align-items: center;

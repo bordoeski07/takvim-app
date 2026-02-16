@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Takvim</title>
 
     <!-- PWA Settings -->
@@ -73,9 +74,11 @@
                 <h2 id="modalTitle">Yeni Ekle</h2>
                 <div class="modal-header-actions">
                     <button type="button" id="deleteBtnHeader" class="icon-btn danger hidden" title="Sil">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2">
+                        <!-- Trash Icon SVG -->
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
                             </path>
                         </svg>
                     </button>
@@ -112,9 +115,9 @@
                                 <input type="radio" name="evtCat" value="personal">
                                 <span class="icon">📅</span> Kişisel
                             </label>
-                            <label class="cat-opt content">
-                                <input type="radio" name="evtCat" value="content">
-                                <span class="icon">🎥</span> İçerik
+                            <label class="cat-opt special">
+                                <input type="radio" name="evtCat" value="special">
+                                <span class="icon">✨</span> Özel
                             </label>
                         </div>
                     </div>
@@ -125,6 +128,7 @@
                         <label>Tekrar</label>
                         <select id="evtRepeat">
                             <option value="none">Tek Seferlik</option>
+                            <option value="daily">Her Gün</option>
                             <option value="weekly">Her Hafta</option>
                             <option value="weekdays">Hafta İçi Her Gün</option>
                         </select>
@@ -172,7 +176,6 @@
             </form>
         </div>
     </div>
-
     <script src="app.js"></script>
 </body>
 

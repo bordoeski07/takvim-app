@@ -14,7 +14,7 @@ const CAT_ICONS = {
     'koc': '📘',
     'stock': '📈',
     'personal': '📅',
-    'content': '🎥'
+    'special': '✨' // Changed from content/camera to special/sparkle
 };
 
 // DOM Elements
@@ -94,7 +94,7 @@ function handleCategoryChange() {
         dom.repeatSelect.value = 'weekly';
     } else {
         dom.repeatSelect.value = 'none';
-        // 'weekdays' for 'stock' maybe? User didn't specify, sticking to 'none' as safe default
+        // User can manually select 'daily' for habits
     }
     updateFormFields();
 }
@@ -106,7 +106,7 @@ function updateFormFields() {
         dom.dayRow.classList.remove('hidden');
         dom.dateRow.classList.add('hidden');
     } else {
-        // For 'none' and 'weekdays', we use Date Picker (Specific Date or Start Date)
+        // For 'none', 'daily', 'weekdays' -> Use Date Picker (Start Date)
         dom.dayRow.classList.add('hidden');
         dom.dateRow.classList.remove('hidden');
     }
@@ -114,19 +114,18 @@ function updateFormFields() {
 
 function openModal(evtToEdit = null) {
     dom.eventForm.reset();
-    document.body.classList.add('modal-open'); // Scroll lock
+    document.body.classList.add('modal-open');
     dom.deleteBtnHeader.classList.add('hidden');
     editingEventId = null;
 
-    // Defaults
     dom.modalTitle.textContent = "Yeni Ekle";
     document.getElementById('evtStart').value = "09:00";
     document.getElementById('evtEnd').value = "10:30";
     dom.date.valueAsDate = new Date();
 
-    // Default Cat: Koc -> this triggers handleCategoryChange -> sets Weekly
+    // Default Cat: Koc
     document.querySelector('input[name="evtCat"][value="koc"]').checked = true;
-    handleCategoryChange(); // Apply default state
+    handleCategoryChange();
 
     // If Editing
     if (evtToEdit) {
@@ -142,8 +141,7 @@ function openModal(evtToEdit = null) {
         const catRadio = document.querySelector(`input[name="evtCat"][value="${evtToEdit.category}"]`);
         if (catRadio) catRadio.checked = true;
 
-        // When editing a specific instance, we force "None" (Single) mode to allow specific Date/Time edit
-        // User can change it back to 'weekly' if they want to create a new series
+        // Force 'none' for edit single instance logic
         dom.repeatSelect.value = 'none';
         updateFormFields();
     }
@@ -171,37 +169,40 @@ function handleFormSubmit(e) {
     const cat = document.querySelector('input[name="evtCat"]:checked').value;
     const repeat = dom.repeatSelect.value;
 
-    // Delete previous if editing
     if (editingEventId) deleteEventById(editingEventId);
 
     // Logic
     if (repeat === 'weekly') {
-        // Weekly -> Use Day Selector
-        const dayIdx = parseInt(dom.day.value); // 0=Sun
+        const dayIdx = parseInt(dom.day.value);
         const weekStart = getStartOfWeek(currentDate);
         const offset = dayIdx === 0 ? 6 : dayIdx - 1;
         const targetDate = new Date(weekStart);
         targetDate.setDate(weekStart.getDate() + offset);
 
-        // Generate for 16 weeks (Semester)
+        // 16 Weeks
         for (let i = 0; i < 16; i++) {
             const d = new Date(targetDate);
             d.setDate(targetDate.getDate() + (i * 7));
             saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
         }
-    } else if (repeat === 'weekdays') {
-        // Weekdays -> Use Date Picker as Start Date
+    } else if (repeat === 'daily') {
+        // Daily: Generate for 30 days
         const dateVal = dom.date.value;
         if (!dateVal) return alert("Başlangıç tarihi seçin.");
 
         const startDate = new Date(dateVal);
-        // Generate for 16 weeks? Or user selected range? Let's do 4 weeks for now to avoid spam
-        // Or better: Just for this week and next 3. 
-        // User expectation: "Mon-Fri".
+        for (let i = 0; i < 30; i++) {
+            const d = new Date(startDate);
+            d.setDate(startDate.getDate() + i);
+            saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
+        }
+    } else if (repeat === 'weekdays') {
+        // Weekdays: Generate for 4 weeks (Mon-Fri)
+        const dateVal = dom.date.value;
+        if (!dateVal) return alert("Başlangıç tarihi seçin.");
 
-        // Let's generate for 4 weeks (20 days) starting from Start Date
-        // Skip Sat/Sun
-        for (let i = 0; i < 28; i++) { // 4 weeks range
+        const startDate = new Date(dateVal);
+        for (let i = 0; i < 28; i++) {
             const d = new Date(startDate);
             d.setDate(startDate.getDate() + i);
             const day = d.getDay();
@@ -210,7 +211,7 @@ function handleFormSubmit(e) {
             }
         }
     } else {
-        // None -> Single
+        // None
         const dateVal = dom.date.value;
         if (!dateVal) return alert("Tarih seçin.");
         const d = new Date(dateVal);
@@ -251,7 +252,16 @@ function deleteEventById(id) {
     localStorage.setItem('calendarEvents', JSON.stringify(events));
 }
 
-// --- View ---
+function deleteEventDirect(e, evtId) {
+    e.stopPropagation(); // Don't trigger edit modal
+    if (confirm("Bu etkinliği silmek istiyor musunuz?")) {
+        deleteEventById(evtId);
+        render(); // Re-render immediately
+    }
+}
+
+// --- View / Render ---
+
 function switchView(v) {
     currentView = v;
     document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
@@ -282,7 +292,6 @@ function navigate(dir) {
     render();
 }
 
-// --- Render ---
 function render() {
     dom.monthYear.textContent = new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(currentDate);
 
@@ -326,9 +335,6 @@ function renderWeek(startDate, dayCount) {
             if (e.target !== col) return;
             openModal();
             dom.date.value = key;
-            // Also set defaults based on category (Koc=Weekly), but if double click maybe assume Single by default?
-            // Actually `openModal` resets to Koc/Weekly. 
-            // Let's force None/Single for quick add via dblclick to a specific day.
             dom.repeatSelect.value = 'none';
             updateFormFields();
         });
@@ -354,10 +360,8 @@ function renderEventsInColumn(container, dayEvents, dateKey) {
     items.forEach(evt => {
         let placed = false;
         for (let i = 0; i < columns.length; i++) {
-            const col = columns[i];
-            const lastEvt = col[col.length - 1];
-            if (lastEvt.bottom <= evt.top + 0.1) {
-                col.push(evt);
+            if (columns[i][columns[i].length - 1].bottom <= evt.top + 0.1) {
+                columns[i].push(evt);
                 evt.colIndex = i;
                 placed = true;
                 break;
@@ -387,8 +391,15 @@ function renderEventsInColumn(container, dayEvents, dateKey) {
                 <span class="event-title">${evt.title}</span>
             </div>
             <span class="event-loc">${evt.location || ''}</span>
+            <div class="event-trash" title="Sil">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </div>
         `;
 
+        // Trash Click
+        el.querySelector('.event-trash').addEventListener('click', (e) => deleteEventDirect(e, evt.id));
+
+        // Card Click
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             openEditModal(evt, dateKey);
@@ -430,6 +441,14 @@ function renderMonth() {
 }
 
 // Helpers
+function getStartOfWeek(d) {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(date.setDate(diff));
+}
+function getDateKey(d) { return d.toISOString().split('T')[0]; }
+function makeDiv(c) { const d = document.createElement('div'); d.className = c; return d; }
 function setupTimeAxis() {
     const axis = document.querySelector('.time-axis');
     axis.innerHTML = '';
@@ -450,11 +469,3 @@ function updateTimeIndicator() {
     dom.currentTimeLine.style.display = 'block';
     dom.currentTimeLine.style.top = `${((h - START_HOUR) + m / 60) * ROW_HEIGHT}px`;
 }
-function getStartOfWeek(d) {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(date.setDate(diff));
-}
-function getDateKey(d) { return d.toISOString().split('T')[0]; }
-function makeDiv(c) { const d = document.createElement('div'); d.className = c; return d; }
