@@ -80,11 +80,9 @@ function validateAndCleanEvents() {
 }
 
 function clearAllData() {
-    if (confirm('Sistemi sıfırlamak istediğinize emin misiniz? Tüm ders programı ve etkinlikler silinecek.')) {
-        events = {};
-        localStorage.removeItem('calendarEvents');
-        render();
-        alert('Sistem sıfırlandı.');
+    if (confirm('DİKKAT: Tüm veriler kalıcı olarak silinecek ve sayfa yenilenecek. Onaylıyor musunuz?')) {
+        localStorage.clear();
+        location.reload();
     }
 }
 
@@ -245,16 +243,15 @@ function renderEventsInColumn(container, dayEvents) {
             div.style.width = `${width}%`;
             div.style.left = `${idx * width}%`;
 
-            // Separate Code and Name logic
-            // Try to regex separate if strictly 'CODE Name'
-            // OR just use full title as name if no code found
+            // Code & Name separation
             let dispName = evt.title;
             let dispCode = '';
 
-            const codeMatch = evt.title.match(/^([A-Z]{2,4}\s?\d{3,4})\s*(.*)$/);
+            // Try to match standard "CODE Name" Pattern
+            const codeMatch = evt.title.match(/^([A-Z]{2,4}\s?\d{3,4})(.*)$/);
             if (codeMatch) {
                 dispCode = codeMatch[1];
-                dispName = codeMatch[2].trim() || dispCode; // Use code as name if no name
+                dispName = codeMatch[2].trim() || dispCode;
             }
 
             div.innerHTML = `
@@ -280,7 +277,6 @@ function renderMonthGrid() {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     // 7 Columns, standard grid
-    // Previous month empty slots
     for (let i = 0; i < startDay; i++) monthGrid.appendChild(createDiv('day empty'));
 
     for (let i = 1; i <= daysInMonth; i++) {
@@ -296,9 +292,9 @@ function renderMonthGrid() {
             const labelContainer = createDiv('month-event-labels');
             events[key].slice(0, 3).forEach(e => {
                 const badge = createDiv(`month-label ${e.category}`);
-                // Try to show Code first (M101), else Title
-                const codeMatch = e.title.match(/^[A-Z]{2,4}\s?\d{3,4}/);
-                badge.textContent = codeMatch ? codeMatch[0] : e.title;
+                // Try to show just the Course Code (first word)
+                const firstWord = e.title.split(' ')[0];
+                badge.textContent = firstWord.substring(0, 8); // Limit chars
                 labelContainer.appendChild(badge);
             });
             if (events[key].length > 3) {
@@ -379,104 +375,102 @@ function saveEvent() {
     eventModal.classList.add('hidden');
 }
 
-// --- Advanced Coordinate Parser (KUSIS) ---
+// --- Advanced Vertical Keyword Parser ---
 function processImport() {
     const text = importText.value;
     if (!text) return;
 
+    // Split and Clean Empty Lines
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const dayKeywords = { 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6, 'sun': 0, 'pazartesi': 1, 'salı': 2, 'çarşamba': 3, 'perşembe': 4, 'cuma': 5 };
 
+    // Dept Keywords to trigger a new block
+    const deptRegex = /^(MATH|PHYS|CHEM|COMP|ENGR|INDR|PSYC|SOSC|HIST|TURK|ACCT|MKTG|MGMT|FINA|OPIM|BIM|LAW|MED|NURS|ARHA|ECPS|ECON)\s?\d{3,4}/i;
+
     let addedCount = 0;
 
-    // We will scan for "Day Blocks".
-    // A Day Block starts with a Day Name.
-    // Inside a Day Block, we look for Time Ranges.
-    // If we find text between Time Ranges, it's the Course Name.
+    // Block based parsing
+    // We create "Course Blocks" when we see a Dept Code. 
+    // We then scan inside that block (until the next Dept Code) for Day and Time.
 
-    let currentDayIdx = -1;
+    let currentBlock = null; // { title: "COMP101", days: [], startTime, endTime }
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const lower = line.toLowerCase();
+    function saveBlock(block) {
+        if (!block || !block.days.length || !block.startTime) return;
 
-        // 1. Check if line is a Day Header
-        // Strict check: Line must contain day name and be short (< 20 chars) to avoid false positives in course titles
-        let foundDay = false;
-        for (const [k, v] of Object.entries(dayKeywords)) {
-            if (lower.includes(k) && lower.length < 30) {
-                currentDayIdx = v;
-                foundDay = true;
-                console.log(`Found Day: ${k} -> ${v}`);
-                break;
-            }
-        }
-        if (foundDay) continue;
-
-        // 2. Check if line is a Time Range (Start - End)
-        // Regex for HH:MM - HH:MM or HH.MM - HH.MM
-        const timeMatch = line.match(/(\d{1,2}[:.]\d{2})\s*[-–]\s*(\d{1,2}[:.]\d{2})/);
-
-        if (timeMatch && currentDayIdx !== -1) {
-            let start = timeMatch[1].replace('.', ':');
-            let end = timeMatch[2].replace('.', ':');
-
-            // The course info is usually AROUND this time line.
-            // In KUSIS/Hub copy paste, it's often:
-            // "COMP101 ..."
-            // "10:00 - 11:15"
-            // OR
-            // "10:00 - 11:15"
-            // "COMP101 ..."
-
-            // Heuristic: Check Previous Line and Next Line
-            let title = "Ders";
-
-            // Check Previous Line for Code (Most common in vertical lists)
-            if (i > 0) {
-                const prev = lines[i - 1];
-                if (prev.match(/\b[A-Z]{2,4}\s?\d{3,4}\b/) && !dayKeywords[prev.toLowerCase()]) {
-                    title = prev;
-                }
-            }
-
-            // If prev line didn't look like a course, check Next Line
-            if (title === "Ders" && i + 1 < lines.length) {
-                const next = lines[i + 1];
-                if (next.match(/\b[A-Z]{2,4}\s?\d{3,4}\b/)) {
-                    title = next;
-                }
-            }
-
-            // Add Event (for next 4 weeks)
-            const d = getStartOfWeek(new Date());
-            d.setDate(d.getDate() + (currentDayIdx - 1));
+        const d = getStartOfWeek(new Date());
+        block.days.forEach(dayIdx => {
+            // Adjust start date to this day
+            const weekStart = new Date(d);
+            weekStart.setDate(weekStart.getDate() + (dayIdx - 1)); // -1 because getStartOfWeek sets Monday, dayIdx is 1-based (Mon=1)
 
             for (let w = 0; w < 4; w++) {
-                const eventDate = new Date(d);
-                eventDate.setDate(d.getDate() + (w * 7));
+                const eventDate = new Date(weekStart);
+                eventDate.setDate(weekStart.getDate() + (w * 7));
                 const key = getDateKey(eventDate);
 
                 if (!events[key]) events[key] = [];
                 events[key].push({
                     id: Date.now() + Math.random(),
-                    title: title,
-                    startTime: start,
-                    endTime: end,
+                    title: block.title, // e.g. COMP101 Intro to Prog
+                    startTime: block.startTime,
+                    endTime: block.endTime,
                     category: 'koc'
                 });
                 addedCount++;
             }
-        }
+        });
     }
+
+    lines.forEach(line => {
+        const lower = line.toLowerCase();
+
+        // 1. Check for New Course Block (Start with Dept Code)
+        if (deptRegex.test(line)) {
+            // Save previous block if exists
+            if (currentBlock) saveBlock(currentBlock);
+
+            // Start New
+            currentBlock = {
+                title: line,
+                days: [],
+                startTime: null,
+                endTime: null
+            };
+            return; // Continue to next line
+        }
+
+        // If we are inside a block, search for details
+        if (currentBlock) {
+            // Check Day
+            for (const [k, v] of Object.entries(dayKeywords)) {
+                if (lower.includes(k) && lower.length < 20) {
+                    if (!currentBlock.days.includes(v)) currentBlock.days.push(v);
+                }
+            }
+
+            // Check Time (HH:MM - HH:MM)
+            const timeMatch = line.match(/(\d{1,2}[:.]\d{2})\s*[-–]\s*(\d{1,2}[:.]\d{2})/);
+            if (timeMatch) {
+                currentBlock.startTime = timeMatch[1].replace('.', ':');
+                currentBlock.endTime = timeMatch[2].replace('.', ':');
+            }
+        }
+    });
+
+    // Save last block
+    if (currentBlock) saveBlock(currentBlock);
 
     if (addedCount > 0) {
         validateAndCleanEvents();
         localStorage.setItem('calendarEvents', JSON.stringify(events));
         render();
         importModal.classList.add('hidden');
-        alert(`${addedCount} ders eklendi.`);
+        alert(`${addedCount} ders eklendi (Blok Algılama Yöntemi).`);
     } else {
-        alert("Ders programı formatı algılanamadı. Lütfen önce günlerin, sonra saatlerin olduğu bir metin yapıştırın.");
+        // Fallback to Scan-Line if no Dept codes found
+        // Use previous simple day-context logic? 
+        // For now, warn user.
+        alert("Ders kodu algılanamadı (Örn: COMP101). Lütfen metnin ders kodlarıyla başladığından emin olun.");
     }
 }
