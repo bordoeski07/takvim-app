@@ -29,6 +29,11 @@
         <header>
             <div class="header-left">
                 <h1 id="monthYear">Ocak 2024</h1>
+                <!-- Market Status Widget -->
+                <div id="marketStatus" class="market-widget hidden">
+                    <span class="market-dot"></span>
+                    <span id="marketTimer" class="market-timer">--:--</span>
+                </div>
             </div>
 
             <div class="view-switcher">
@@ -51,6 +56,12 @@
         <!-- Weekdays Header -->
         <div id="weekdaysHeader" class="weekdays"></div>
 
+        <!-- All Day Row (Fixed) -->
+        <div id="allDayContainer" class="all-day-container hidden">
+            <div class="all-day-label">Tüm Gün</div>
+            <div id="allDayGrid" class="all-day-grid"></div>
+        </div>
+
         <!-- Views Container -->
         <div class="views-container">
             <!-- Time Grid -->
@@ -68,13 +79,12 @@
 
     <!-- Add/Edit Event Modal -->
     <div id="eventModal" class="modal hidden">
-        <div class="modal-overlay"></div> <!-- Click to close area -->
+        <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modalTitle">Yeni Ekle</h2>
                 <div class="modal-header-actions">
                     <button type="button" id="deleteBtnHeader" class="icon-btn danger hidden" title="Sil">
-                        <!-- Trash Icon SVG -->
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="3 6 5 6 21 6"></polyline>

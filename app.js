@@ -14,7 +14,8 @@ const CAT_ICONS = {
     'koc': '📘',
     'stock': '📈',
     'personal': '📅',
-    'special': '✨' // Changed from content/camera to special/sparkle
+    'special': '✨',
+    'ipo': '📢'
 };
 
 // DOM Elements
@@ -25,6 +26,11 @@ const dom = {
     weekGrid: document.getElementById('weekGrid'),
     monthGrid: document.getElementById('monthGrid'),
     currentTimeLine: document.getElementById('currentTimeLine'),
+    allDayContainer: document.getElementById('allDayContainer'),
+    allDayGrid: document.getElementById('allDayGrid'),
+    marketStatus: document.getElementById('marketStatus'),
+    marketDot: document.querySelector('.market-dot'),
+    marketTimer: document.getElementById('marketTimer'),
 
     // Modals
     eventModal: document.getElementById('eventModal'),
@@ -72,10 +78,15 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.catRadios.forEach(r => r.addEventListener('change', handleCategoryChange));
 
     // Setup
+    checkMarketData(); // Self-Updating Data
     setupTimeAxis();
     render();
+
+    // Timers
     setInterval(updateTimeIndicator, 60000);
+    setInterval(updateMarketCountdown, 1000); // Live BIST timer
     updateTimeIndicator();
+    updateMarketCountdown();
 });
 
 // --- Logic ---
@@ -87,26 +98,100 @@ function factoryReset() {
     }
 }
 
+// --- Market Data Fetcher (Simulated) ---
+function checkMarketData() {
+    // Logic: In real app, fetch from network. Here, mock it.
+    // Check if we already fetched today?
+    const lastFetch = localStorage.getItem('lastIPOCheck');
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (lastFetch !== todayStr) {
+        // Simulate finding a new IPO
+        // Let's add an IPO for "Tomorrow"
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dayKey = getDateKey(tomorrow); // YYYY-MM-DD
+
+        // Mock Data
+        const newIPO = {
+            id: 'ipo-' + Date.now(),
+            title: "DUMMY Enerji (Talep)",
+            location: "BIST",
+            startTime: "09:00",
+            endTime: "17:00",
+            category: "ipo",
+            allDay: true // Flag for All Day Row
+        };
+
+        if (!events[dayKey]) events[dayKey] = [];
+
+        // Avoid duplicates
+        const exists = events[dayKey].some(e => e.title === newIPO.title);
+        if (!exists) {
+            events[dayKey].push(newIPO);
+            localStorage.setItem('calendarEvents', JSON.stringify(events));
+            // Notify user passively? Or just let it appear.
+            console.log("New IPO Data Fetched and Added");
+        }
+
+        localStorage.setItem('lastIPOCheck', todayStr);
+    }
+}
+
+// --- BIST Market Countdown ---
+function updateMarketCountdown() {
+    dom.marketStatus.classList.remove('hidden');
+    const now = new Date();
+    const day = now.getDay(); // 0 Sun, 6 Sat
+
+    // Weekend?
+    if (day === 0 || day === 6) {
+        dom.marketDot.className = 'market-dot closed';
+        dom.marketTimer.textContent = "KAPALI";
+        return;
+    }
+
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const openMins = 9 * 60 + 40; // 09:40
+    const closeMins = 18 * 60 + 10; // 18:10
+
+    if (currentMins >= openMins && currentMins < closeMins) {
+        // Open
+        dom.marketDot.className = 'market-dot open';
+        const diff = closeMins - currentMins;
+        const widthHours = Math.floor(diff / 60);
+        const widthMins = diff % 60;
+        dom.marketTimer.textContent = `Kapanışa ${widthHours}s ${widthMins}dk`;
+    } else {
+        // Closed
+        dom.marketDot.className = 'market-dot closed';
+        if (currentMins < openMins) {
+            const diff = openMins - currentMins;
+            const widthHours = Math.floor(diff / 60);
+            const widthMins = diff % 60;
+            dom.marketTimer.textContent = `Açılışa ${widthHours}s ${widthMins}dk`;
+        } else {
+            dom.marketTimer.textContent = "KAPALI";
+        }
+    }
+}
+
 function handleCategoryChange() {
     const cat = document.querySelector('input[name="evtCat"]:checked').value;
-    // Default logic based on Category
     if (cat === 'koc') {
         dom.repeatSelect.value = 'weekly';
     } else {
         dom.repeatSelect.value = 'none';
-        // User can manually select 'daily' for habits
     }
     updateFormFields();
 }
 
 function updateFormFields() {
     const repeat = dom.repeatSelect.value;
-
     if (repeat === 'weekly') {
         dom.dayRow.classList.remove('hidden');
         dom.dateRow.classList.add('hidden');
     } else {
-        // For 'none', 'daily', 'weekdays' -> Use Date Picker (Start Date)
         dom.dayRow.classList.add('hidden');
         dom.dateRow.classList.remove('hidden');
     }
@@ -123,11 +208,9 @@ function openModal(evtToEdit = null) {
     document.getElementById('evtEnd').value = "10:30";
     dom.date.valueAsDate = new Date();
 
-    // Default Cat: Koc
     document.querySelector('input[name="evtCat"][value="koc"]').checked = true;
     handleCategoryChange();
 
-    // If Editing
     if (evtToEdit) {
         editingEventId = evtToEdit.id;
         dom.modalTitle.textContent = "Düzenle";
@@ -141,11 +224,9 @@ function openModal(evtToEdit = null) {
         const catRadio = document.querySelector(`input[name="evtCat"][value="${evtToEdit.category}"]`);
         if (catRadio) catRadio.checked = true;
 
-        // Force 'none' for edit single instance logic
         dom.repeatSelect.value = 'none';
         updateFormFields();
     }
-
     dom.eventModal.classList.remove('hidden');
 }
 
@@ -171,7 +252,6 @@ function handleFormSubmit(e) {
 
     if (editingEventId) deleteEventById(editingEventId);
 
-    // Logic
     if (repeat === 'weekly') {
         const dayIdx = parseInt(dom.day.value);
         const weekStart = getStartOfWeek(currentDate);
@@ -179,17 +259,14 @@ function handleFormSubmit(e) {
         const targetDate = new Date(weekStart);
         targetDate.setDate(weekStart.getDate() + offset);
 
-        // 16 Weeks
         for (let i = 0; i < 16; i++) {
             const d = new Date(targetDate);
             d.setDate(targetDate.getDate() + (i * 7));
             saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
         }
     } else if (repeat === 'daily') {
-        // Daily: Generate for 30 days
         const dateVal = dom.date.value;
         if (!dateVal) return alert("Başlangıç tarihi seçin.");
-
         const startDate = new Date(dateVal);
         for (let i = 0; i < 30; i++) {
             const d = new Date(startDate);
@@ -197,27 +274,23 @@ function handleFormSubmit(e) {
             saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
         }
     } else if (repeat === 'weekdays') {
-        // Weekdays: Generate for 4 weeks (Mon-Fri)
         const dateVal = dom.date.value;
         if (!dateVal) return alert("Başlangıç tarihi seçin.");
-
         const startDate = new Date(dateVal);
         for (let i = 0; i < 28; i++) {
             const d = new Date(startDate);
             d.setDate(startDate.getDate() + i);
             const day = d.getDay();
-            if (day !== 0 && day !== 6) { // Skip Sun(0) and Sat(6)
+            if (day !== 0 && day !== 6) {
                 saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
             }
         }
     } else {
-        // None
         const dateVal = dom.date.value;
         if (!dateVal) return alert("Tarih seçin.");
         const d = new Date(dateVal);
         saveEventToDate(d, { title, location: loc, startTime: start, endTime: end, category: cat });
     }
-
     closeModal();
     render();
 }
@@ -226,7 +299,7 @@ function saveEventToDate(dateObj, data) {
     const key = getDateKey(dateObj);
     if (!events[key]) events[key] = [];
     events[key].push({
-        id: Date.now() + Math.random(), // Unique ID
+        id: Date.now() + Math.random(),
         ...data
     });
     localStorage.setItem('calendarEvents', JSON.stringify(events));
@@ -253,10 +326,10 @@ function deleteEventById(id) {
 }
 
 function deleteEventDirect(e, evtId) {
-    e.stopPropagation(); // Don't trigger edit modal
+    e.stopPropagation();
     if (confirm("Bu etkinliği silmek istiyor musunuz?")) {
         deleteEventById(evtId);
-        render(); // Re-render immediately
+        render();
     }
 }
 
@@ -270,16 +343,22 @@ function switchView(v) {
     if (v === 'month') {
         dom.timeGrid.classList.add('hidden');
         dom.monthGrid.classList.remove('hidden');
+        dom.allDayContainer.classList.add('hidden'); // Hide All Day in Month View
     } else {
         dom.timeGrid.classList.remove('hidden');
         dom.monthGrid.classList.add('hidden');
+        dom.allDayContainer.classList.remove('hidden'); // Show All Day in Week/Day
 
         if (v === 'day') {
             dom.weekdays.style.gridTemplateColumns = '50px 1fr';
             dom.weekGrid.style.gridTemplateColumns = '1fr';
+            dom.allDayContainer.style.gridTemplateColumns = '50px 1fr';
+            dom.allDayGrid.style.gridTemplateColumns = '1fr';
         } else {
             dom.weekdays.style.gridTemplateColumns = '50px repeat(7, 1fr)';
             dom.weekGrid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+            dom.allDayContainer.style.gridTemplateColumns = '50px repeat(7, 1fr)';
+            dom.allDayGrid.style.gridTemplateColumns = 'repeat(7, 1fr)';
         }
     }
     render();
@@ -319,6 +398,7 @@ function render() {
 function renderWeek(startDate, dayCount) {
     dom.weekGrid.innerHTML = '';
     dom.weekGrid.appendChild(dom.currentTimeLine);
+    dom.allDayGrid.innerHTML = ''; // Clear All Day Grid
 
     for (let i = 0; i < dayCount; i++) {
         const d = new Date(startDate);
@@ -328,8 +408,16 @@ function renderWeek(startDate, dayCount) {
         const col = document.createElement('div');
         col.className = 'day-column';
 
+        // Filter Events: AllDay vs Timed
         const dayEvents = events[key] || [];
-        renderEventsInColumn(col, dayEvents, key);
+        const timedEvents = dayEvents.filter(e => !e.allDay);
+        const allDayEvents = dayEvents.filter(e => e.allDay);
+
+        // Render Timed
+        renderEventsInColumn(col, timedEvents, key);
+
+        // Render All Day (Into separate grid)
+        renderAllDayEvent(i, allDayEvents);
 
         col.addEventListener('dblclick', (e) => {
             if (e.target !== col) return;
@@ -341,6 +429,25 @@ function renderWeek(startDate, dayCount) {
 
         dom.weekGrid.appendChild(col);
     }
+}
+
+function renderAllDayEvent(colIndex, allDayEvents) {
+    // We don't have separate columns divs in allDayGrid, we just use grid-column positioning
+    // Because AllDay events might span (not implemented yet, but good practice)
+    // For now, simple 1-cell events
+
+    allDayEvents.forEach(evt => {
+        const el = document.createElement('div');
+        el.className = `all-day-event ${evt.category}`;
+        el.style.gridColumn = colIndex + 1; // 1-based index
+        el.textContent = evt.title;
+
+        el.addEventListener('click', (e) => {
+            alert(`${evt.title}\n${evt.location}\nTüm gün sürüyor.`);
+        });
+
+        dom.allDayGrid.appendChild(el);
+    });
 }
 
 function renderEventsInColumn(container, dayEvents, dateKey) {
@@ -396,10 +503,7 @@ function renderEventsInColumn(container, dayEvents, dateKey) {
             </div>
         `;
 
-        // Trash Click
         el.querySelector('.event-trash').addEventListener('click', (e) => deleteEventDirect(e, evt.id));
-
-        // Card Click
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             openEditModal(evt, dateKey);

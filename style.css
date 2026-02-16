@@ -13,6 +13,8 @@
     /* Bright Orange */
     --color-personal: #4a5568;
     /* Slate Gray */
+    --color-ipo: #059669;
+    /* Darker Green for IPO Strip */
 
     --grid-line-color: #2a2a2a;
     --time-text-color: #888;
@@ -20,7 +22,6 @@
     --font-family: 'Inter', sans-serif;
     --header-height: 60px;
 
-    /* Safe Area for Mobile */
     --safe-area-bottom: env(safe-area-inset-bottom, 20px);
     --safe-area-top: env(safe-area-inset-top, 20px);
 }
@@ -43,7 +44,6 @@ body {
 
 body.modal-open {
     overflow: hidden;
-    /* Prevent body scroll when modal is open */
 }
 
 .app-container {
@@ -59,7 +59,6 @@ header {
     height: var(--header-height);
     padding: 0 15px;
     padding-top: max(0px, var(--safe-area-top));
-    /* Handle notch? usually handled by viewport-fit=cover but adding just in case */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -74,8 +73,61 @@ h1 {
     min-width: 120px;
 }
 
-.view-switcher {
+/* Market Widget */
+.market-widget {
     display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #2a2a2a;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 10px;
+}
+
+.market-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #666;
+}
+
+.market-dot.open {
+    background: #50c878;
+    box-shadow: 0 0 6px #50c878;
+    animation: pulse 2s infinite;
+}
+
+.market-dot.closed {
+    background: #ef4444;
+}
+
+.market-timer {
+    font-family: monospace;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.view-switcher,
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.view-switcher {
     background: var(--card-bg);
     border-radius: 8px;
     padding: 2px;
@@ -148,6 +200,58 @@ h1 {
     color: var(--color-koc);
 }
 
+/* All Day Section */
+.all-day-container {
+    display: grid;
+    grid-template-columns: 50px repeat(7, 1fr);
+    background: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    min-height: 30px;
+    flex-shrink: 0;
+}
+
+.all-day-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: #666;
+    border-right: 1px solid var(--border-color);
+}
+
+.all-day-grid {
+    grid-column: 2 / -1;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    position: relative;
+}
+
+.all-day-event {
+    margin: 2px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--color-ipo);
+    cursor: pointer;
+    text-align: center;
+}
+
+.all-day-event.stock {
+    background: var(--color-stock);
+}
+
+.all-day-event.ipo {
+    background: var(--color-ipo);
+    border: 1px solid #a7f3d0;
+    color: #ecfdf5;
+    font-weight: 600;
+}
+
+/* Main Views */
 .views-container {
     flex: 1;
     overflow: hidden;
@@ -212,7 +316,6 @@ h1 {
     border-left: 3px solid rgba(255, 255, 255, 0.3);
     display: flex;
     flex-direction: column;
-    /* Disable user select to prevent text interaction on long press/scroll */
     user-select: none;
 }
 
@@ -228,7 +331,6 @@ h1 {
     gap: 4px;
     margin-bottom: 1px;
     padding-right: 18px;
-    /* Space for Trash icon */
 }
 
 .event-icon {
@@ -253,7 +355,6 @@ h1 {
     text-overflow: ellipsis;
 }
 
-/* Trash Icon in Event Block */
 .event-trash {
     position: absolute;
     top: 2px;
@@ -279,7 +380,6 @@ h1 {
     height: 12px;
 }
 
-/* Category Colors */
 .event-block.koc {
     background-color: var(--color-koc);
     border-color: #4c9aff;
@@ -371,7 +471,13 @@ h1 {
     color: white;
 }
 
-/* Modal & Form - Mobile Optimized */
+.month-label.ipo {
+    background-color: var(--color-ipo);
+    color: white;
+    border: 1px solid #fff;
+}
+
+/* Modal & Form */
 .modal {
     position: fixed;
     inset: 0;
@@ -395,9 +501,7 @@ h1 {
     margin: auto;
     position: relative;
     max-height: 90vh;
-    /* Prevent modal being taller than screen */
     overflow-y: auto;
-    /* Scroll inside modal if needed */
     display: flex;
     flex-direction: column;
 }
@@ -441,8 +545,6 @@ form {
     flex-direction: column;
 }
 
-/* Make form flex to push footer down if needed */
-
 .form-group {
     margin-bottom: 15px;
     flex-shrink: 0;
@@ -465,7 +567,6 @@ form {
     flex: 1;
 }
 
-/* Touch Friendly Inputs */
 input,
 select {
     width: 100%;
@@ -485,7 +586,6 @@ select:focus {
     background: #333;
 }
 
-/* Category Options */
 .category-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -540,12 +640,10 @@ select:focus {
     font-size: 1.2rem;
 }
 
-/* Modal Footer Actions */
 .modal-footer {
     display: flex;
     gap: 10px;
     margin-top: 25px;
-    /* Push to bottom of safe area */
     padding-bottom: var(--safe-area-bottom);
     flex-shrink: 0;
 }
@@ -585,27 +683,6 @@ select:focus {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.current-time-line {
-    position: absolute;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: #ef4444;
-    z-index: 20;
-    pointer-events: none;
-}
-
-.current-time-line::before {
-    content: '';
-    position: absolute;
-    left: -5px;
-    top: -4px;
-    width: 10px;
-    height: 10px;
-    background: #ef4444;
-    border-radius: 50%;
 }
 
 .hidden {
